@@ -49,15 +49,18 @@ export function subscribeTasksByProject(projectId: string, cb: (tasks: Task[]) =
 }
 
 // Members
-export async function createMember(data: Omit<Member, "id" | "createdAt">) {
-  const ref = await addDoc(collection(db, "members"), { ...data, createdAt: serverTimestamp() });
+// Members
+export async function createMember(data: Omit<Member, "id" | "createdAt" | "updatedAt">) {
+  const ref = await addDoc(collection(db, "members"), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   return ref.id;
 }
-export async function updateMember(id: string, data: Partial<Member>) { await updateDoc(doc(db, "members", id), data); }
+export async function updateMember(id: string, data: Partial<Member>) {
+  await updateDoc(doc(db, "members", id), { ...data, updatedAt: serverTimestamp() });
+}
 export async function deleteMember(id: string) { await deleteDoc(doc(db, "members", id)); }
 export function subscribeMembers(cb: (members: Member[]) => void) {
   return onSnapshot(query(collection(db, "members"), orderBy("name")), snap => {
-    cb(snap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: toISO(d.data().createdAt) } as Member)));
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: toISO(d.data().createdAt), updatedAt: toISO(d.data().updatedAt) } as Member)));
   });
 }
 
