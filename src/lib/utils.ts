@@ -1,17 +1,17 @@
 import type { Priority, TaskStatus } from "@/types";
 
-export const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; bg: string; dot: string }> = {
-  low:      { label: "低",      color: "text-slate-500",  bg: "bg-slate-100",  dot: "bg-slate-400" },
-  medium:   { label: "中",      color: "text-amber-600",  bg: "bg-amber-50",   dot: "bg-amber-400" },
-  high:     { label: "高",      color: "text-orange-600", bg: "bg-orange-50",  dot: "bg-orange-500" },
-  critical: { label: "緊急",    color: "text-red-600",    bg: "bg-red-50",     dot: "bg-red-500" },
+export const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; bg: string; dot: string; icon: string }> = {
+  low:    { label: "低",   color: "text-slate-500",  bg: "bg-slate-100",  dot: "bg-slate-400",  icon: "🔵" },
+  medium: { label: "中",   color: "text-amber-600",  bg: "bg-amber-50",   dot: "bg-amber-400",  icon: "🟡" },
+  high:   { label: "高",   color: "text-orange-600", bg: "bg-orange-50",  dot: "bg-orange-500", icon: "🟠" },
+  urgent: { label: "緊急", color: "text-red-600",    bg: "bg-red-50",     dot: "bg-red-500",    icon: "🔴" },
 };
 
-export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; bg: string }> = {
-  todo:        { label: "未着手",   color: "text-slate-600",  bg: "bg-slate-100" },
-  in_progress: { label: "進行中",   color: "text-blue-600",   bg: "bg-blue-50" },
-  review:      { label: "レビュー", color: "text-purple-600", bg: "bg-purple-50" },
-  done:        { label: "完了",     color: "text-green-600",  bg: "bg-green-50" },
+export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; bg: string; icon: string }> = {
+  todo:        { label: "未着手",   color: "text-slate-600",  bg: "bg-slate-100",  icon: "⬜" },
+  in_progress: { label: "進行中",   color: "text-blue-600",   bg: "bg-blue-50",    icon: "🔄" },
+  review:      { label: "レビュー", color: "text-purple-600", bg: "bg-purple-50",  icon: "👀" },
+  done:        { label: "完了",     color: "text-green-600",  bg: "bg-green-50",   icon: "✅" },
 };
 
 export const PROJECT_COLORS = [
@@ -29,11 +29,11 @@ export function initials(name: string) {
   return name.split(" ").map(p => p[0]).join("").toUpperCase().slice(0, 2);
 }
 
-export function progressColor(p: number) {
-  if (p >= 80) return "bg-green-500";
-  if (p >= 50) return "bg-blue-500";
-  if (p >= 20) return "bg-amber-400";
-  return "bg-slate-300";
+export function progressColor(p: number): string {
+  if (p >= 80) return "#22C55E";
+  if (p >= 50) return "#3B82F6";
+  if (p >= 20) return "#F59E0B";
+  return "#CBD5E1";
 }
 
 export function daysUntil(iso: string | null): number | null {
