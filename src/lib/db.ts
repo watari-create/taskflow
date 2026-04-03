@@ -65,7 +65,7 @@ export function subscribeMembers(cb: (members: Member[]) => void) {
 export interface Comment {
   id: string;
   taskId: string;
-  authorName: string;
+  authorId: string;
   body: string;
   createdAt: string;
 }
