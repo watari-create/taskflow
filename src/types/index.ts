@@ -7,6 +7,7 @@ export interface Member {
   role: string;
   color: string;
   avatarColor: string;
+  email: string; 
   createdAt: string;
   updatedAt: string;
 }
