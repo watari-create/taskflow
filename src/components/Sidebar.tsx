@@ -81,7 +81,7 @@ export default function Sidebar({ projects, selectedProjectId, view, onSelectPro
               {PROJECT_COLORS.map(c => (
                 <button key={c} onClick={()=>setColor(c)}
                   className={`w-5 h-5 rounded-full transition-transform ${color===c?"scale-125 ring-2 ring-offset-1":"hover:scale-110"}`}
-                  style={{ background: c, ringColor: c }}/>
+                  style={{ background: c }}/>
               ))}
             </div>
             <div className="flex gap-1.5">
