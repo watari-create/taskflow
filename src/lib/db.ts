@@ -42,13 +42,12 @@ export function subscribeTasksByProject(projectId: string, cb: (tasks: Task[]) =
     snap => {
       const list = snap.docs
         .map(d => ({ id: d.id, ...d.data(), createdAt: toISO(d.data().createdAt), updatedAt: toISO(d.data().updatedAt) } as Task))
-        .sort((a, b) => a.order - b.order);
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       cb(list);
     }
   );
 }
 
-// Members
 // Members
 export async function createMember(data: Omit<Member, "id" | "createdAt" | "updatedAt">) {
   const ref = await addDoc(collection(db, "members"), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
