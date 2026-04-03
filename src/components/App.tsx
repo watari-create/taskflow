@@ -63,9 +63,9 @@ export default function App() {
   const handleDeleteTask = useCallback((id: string) => deleteTask(id), []);
 
   // ---- member handlers ----
-  const handleCreateMember = useCallback((data: Omit<Member, "id"|"createdAt">) => createMember(data), []);
-  const handleUpdateMember = useCallback((id: string, data: Partial<Member>) => updateMember(id, data), []);
-  const handleDeleteMember = useCallback((id: string) => deleteMember(id), []);
+ const handleCreateMember = useCallback((data: Omit<Member, "id"|"createdAt"|"updatedAt">) => createMember(data), []);
+const handleUpdateMember = useCallback((id: string, data: Partial<Member>) => updateMember(id, data), []);
+const handleDeleteMember = useCallback((id: string) => deleteMember(id), []);
 
   const selectedProject = projects.find(p => p.id === selectedProjectId) ?? null;
 
