@@ -1,11 +1,12 @@
 "use client";
-import { useState, useMemo } from "react";
-import { Plus, Trash2, Settings, MoreHorizontal, X, Check, Calendar, User } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Plus, Trash2, MoreHorizontal, X, Check, Calendar, MessageCircle, Send } from "lucide-react";
 import type { Project, Task, Member, Priority, TaskStatus } from "@/types";
 import {
   PRIORITY_CONFIG, STATUS_CONFIG, progressColor,
-  daysUntil, formatDate, initials, AVATAR_COLORS,
+  daysUntil, formatDate, initials,
 } from "@/lib/utils";
+import { createComment, deleteComment, subscribeCommentsByTask, type Comment } from "@/lib/db";
 
 interface Props {
   project: Project;
@@ -24,8 +25,7 @@ export default function ProjectView({ project, tasks, members, onUpdateProject, 
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showNewTask,  setShowNewTask]  = useState(false);
   const [filterStatus, setFilterStatus] = useState<TaskStatus | "all">("all");
-
-  const projectMembers = members.filter(m => project.memberIds.includes(m.id));
+  const [commentTask, setCommentTask] = useState<Task | null>(null);
 
   const filtered = useMemo(() =>
     filterStatus === "all" ? tasks : tasks.filter(t => t.status === filterStatus),
@@ -38,7 +38,6 @@ export default function ProjectView({ project, tasks, members, onUpdateProject, 
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl text-white font-bold text-lg flex items-center justify-center shrink-0" style={{ background: project.color }}>
@@ -55,7 +54,6 @@ export default function ProjectView({ project, tasks, members, onUpdateProject, 
         </button>
       </div>
 
-      {/* Progress bar */}
       <div className="bg-white rounded-2xl border border-zinc-200 p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-medium text-zinc-700">全体進捗</span>
@@ -72,23 +70,6 @@ export default function ProjectView({ project, tasks, members, onUpdateProject, 
         </div>
       </div>
 
-      {/* Members */}
-      {projectMembers.length > 0 && (
-        <div className="flex items-center gap-2 mb-6">
-          <span className="text-xs text-zinc-400">メンバー:</span>
-          <div className="flex -space-x-2">
-            {projectMembers.map(m => (
-              <div key={m.id} title={m.name}
-                className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-white text-[10px] font-semibold"
-                style={{ background: m.avatarColor }}>
-                {initials(m.name)}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Filters + Add task */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-1.5">
           {(["all", ...STATUSES] as const).map(s => (
@@ -104,13 +85,13 @@ export default function ProjectView({ project, tasks, members, onUpdateProject, 
         </button>
       </div>
 
-      {/* Task list */}
       <div className="space-y-2">
         {filtered.map(task => (
           <TaskRow key={task.id} task={task} members={members}
             onEdit={() => setEditingTask(task)}
             onDelete={() => onDeleteTask(task.id)}
             onProgressChange={p => onUpdateTask(task.id, { progress: p })}
+            onComment={() => setCommentTask(task)}
           />
         ))}
         {filtered.length === 0 && (
@@ -120,7 +101,6 @@ export default function ProjectView({ project, tasks, members, onUpdateProject, 
         )}
       </div>
 
-      {/* Modals */}
       {showNewTask && (
         <TaskModal mode="create" project={project} members={members} tasks={tasks}
           onSave={d => { onCreateTask(d); setShowNewTask(false); }}
@@ -133,13 +113,15 @@ export default function ProjectView({ project, tasks, members, onUpdateProject, 
           onClose={() => setEditingTask(null)}
         />
       )}
+      {commentTask && (
+        <CommentModal task={commentTask} members={members} onClose={() => setCommentTask(null)} />
+      )}
     </div>
   );
 }
 
-/* ---- TaskRow ---- */
-function TaskRow({ task, members, onEdit, onDelete, onProgressChange }:
-  { task: Task; members: Member[]; onEdit: () => void; onDelete: () => void; onProgressChange: (p: number) => void }) {
+function TaskRow({ task, members, onEdit, onDelete, onProgressChange, onComment }:
+  { task: Task; members: Member[]; onEdit: () => void; onDelete: () => void; onProgressChange: (p: number) => void; onComment: () => void }) {
   const pc = PRIORITY_CONFIG[task.priority];
   const sc = STATUS_CONFIG[task.status];
   const days = daysUntil(task.dueDate);
@@ -148,10 +130,7 @@ function TaskRow({ task, members, onEdit, onDelete, onProgressChange }:
 
   return (
     <div className="card-lift bg-white rounded-xl border border-zinc-200 px-5 py-4 flex items-center gap-4">
-      {/* priority dot */}
       <div className={`w-2 h-2 rounded-full shrink-0 ${pc.dot}`}/>
-
-      {/* title */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`font-medium text-sm ${task.status === "done" ? "line-through text-zinc-400" : "text-zinc-900"}`}>{task.title}</span>
@@ -160,8 +139,6 @@ function TaskRow({ task, members, onEdit, onDelete, onProgressChange }:
         </div>
         {task.description && <p className="text-xs text-zinc-400 mt-0.5 truncate">{task.description}</p>}
       </div>
-
-      {/* progress */}
       <div className="w-28 shrink-0">
         <div className="flex justify-between text-[11px] text-zinc-400 mb-1">
           <span>進捗</span><span className="font-medium">{task.progress}%</span>
@@ -170,8 +147,6 @@ function TaskRow({ task, members, onEdit, onDelete, onProgressChange }:
           onChange={e => onProgressChange(Number(e.target.value))}
           className="w-full h-1.5 accent-brand-500"/>
       </div>
-
-      {/* due date */}
       {task.dueDate && (
         <div className={`text-[11px] shrink-0 flex items-center gap-1 ${overdue ? "text-red-500" : "text-zinc-400"}`}>
           <Calendar size={11}/>
@@ -179,8 +154,6 @@ function TaskRow({ task, members, onEdit, onDelete, onProgressChange }:
           {days !== null && <span className="ml-0.5">({days >= 0 ? `あと${days}日` : `${Math.abs(days)}日超過`})</span>}
         </div>
       )}
-
-      {/* assignees */}
       {assignees.length > 0 && (
         <div className="flex -space-x-1.5 shrink-0">
           {assignees.slice(0,3).map(m => (
@@ -192,9 +165,10 @@ function TaskRow({ task, members, onEdit, onDelete, onProgressChange }:
           ))}
         </div>
       )}
-
-      {/* actions */}
       <div className="flex gap-1 shrink-0">
+        <button onClick={onComment} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-zinc-100 transition-colors" title="コメント">
+          <MessageCircle size={13} className="text-zinc-400"/>
+        </button>
         <button onClick={onEdit} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-zinc-100 transition-colors">
           <MoreHorizontal size={14} className="text-zinc-400"/>
         </button>
@@ -207,111 +181,58 @@ function TaskRow({ task, members, onEdit, onDelete, onProgressChange }:
   );
 }
 
-/* ---- TaskModal ---- */
-function TaskModal({ mode, project, members, tasks, task, onSave, onClose }:
-  { mode: "create"|"edit"; project: Project; members: Member[]; tasks: Task[]; task?: Task;
-    onSave: (d: Omit<Task,"id"|"createdAt"|"updatedAt">) => void; onClose: () => void }) {
+function CommentModal({ task, members, onClose }: { task: Task; members: Member[]; onClose: () => void }) {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [author, setAuthor] = useState("");
+  const [body, setBody] = useState("");
 
-  const [title,       setTitle]       = useState(task?.title ?? "");
-  const [description, setDescription] = useState(task?.description ?? "");
-  const [status,      setStatus]      = useState<TaskStatus>(task?.status ?? "todo");
-  const [priority,    setPriority]    = useState<Priority>(task?.priority ?? "medium");
-  const [progress,    setProgress]    = useState(task?.progress ?? 0);
-  const [dueDate,     setDueDate]     = useState(task?.dueDate?.slice(0,10) ?? "");
-  const [assigneeIds, setAssigneeIds] = useState<string[]>(task?.assigneeIds ?? []);
+  useEffect(() => {
+    const unsub = subscribeCommentsByTask(task.id, setComments);
+    return unsub;
+  }, [task.id]);
 
-  const toggleAssignee = (id: string) =>
-    setAssigneeIds(prev => prev.includes(id) ? prev.filter(x => x!==id) : [...prev, id]);
-
-  const handleSave = () => {
-    if (!title.trim()) return;
-    onSave({
-      projectId:   project.id,
-      title:       title.trim(),
-      description: description.trim(),
-      status, priority, progress, assigneeIds,
-      dueDate:     dueDate || null,
-      order:       task?.order ?? Date.now(),
-    });
+  const handleSend = async () => {
+    if (!body.trim()) return;
+    await createComment({ taskId: task.id, authorName: author.trim() || "名無し", body: body.trim() });
+    setBody("");
   };
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={e => { if(e.target===e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl">
+      <div className="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl flex flex-col" style={{ maxHeight: "80vh" }}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
-          <h2 className="font-semibold text-zinc-900">{mode==="create" ? "タスクを追加" : "タスクを編集"}</h2>
+          <div>
+            <h2 className="font-semibold text-zinc-900 text-sm">コメント</h2>
+            <p className="text-xs text-zinc-400 mt-0.5 truncate">{task.title}</p>
+          </div>
           <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-zinc-100">
             <X size={15} className="text-zinc-400"/>
           </button>
         </div>
-        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
-          <Field label="タスク名 *">
-            <input value={title} onChange={e=>setTitle(e.target.value)} autoFocus
-              placeholder="タスク名を入力" className="input"/>
-          </Field>
-          <Field label="説明">
-            <textarea value={description} onChange={e=>setDescription(e.target.value)} rows={2}
-              placeholder="詳細を記述（任意）" className="input resize-none"/>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="ステータス">
-              <select value={status} onChange={e=>setStatus(e.target.value as TaskStatus)} className="input">
-                {(Object.entries(STATUS_CONFIG) as [TaskStatus, typeof STATUS_CONFIG[TaskStatus]][]).map(([k,v]) => (
-                  <option key={k} value={k}>{v.label}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="優先度">
-              <select value={priority} onChange={e=>setPriority(e.target.value as Priority)} className="input">
-                {(Object.entries(PRIORITY_CONFIG) as [Priority, typeof PRIORITY_CONFIG[Priority]][]).map(([k,v]) => (
-                  <option key={k} value={k}>{v.label}</option>
-                ))}
-              </select>
-            </Field>
-          </div>
-          <Field label={`進捗: ${progress}%`}>
-            <input type="range" min={0} max={100} step={5} value={progress}
-              onChange={e=>setProgress(Number(e.target.value))} className="w-full accent-brand-500"/>
-            <div className="h-2 bg-zinc-100 rounded-full mt-1 overflow-hidden">
-              <div className={`h-full rounded-full progress-fill ${progressColor(progress)}`} style={{ width: `${progress}%` }}/>
-            </div>
-          </Field>
-          <Field label="期限">
-            <input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)} className="input"/>
-          </Field>
-          {members.length > 0 && (
-            <Field label="担当者">
-              <div className="flex gap-2 flex-wrap">
-                {members.map(m => (
-                  <button key={m.id} onClick={()=>toggleAssignee(m.id)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${assigneeIds.includes(m.id) ? "border-brand-500 bg-brand-50 text-brand-700" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>
-                    <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-semibold" style={{ background: m.avatarColor }}>
-                      {initials(m.name)}
-                    </div>
-                    {m.name}
-                  </button>
-                ))}
-              </div>
-            </Field>
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          {comments.length === 0 && (
+            <p className="text-xs text-zinc-400 text-center py-8">まだコメントはありません</p>
           )}
+          {comments.map(c => (
+            <div key={c.id} className="bg-zinc-50 rounded-xl px-4 py-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-zinc-700">{c.authorName}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-zinc-400">{new Date(c.createdAt).toLocaleString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                  <button onClick={() => deleteComment(c.id)} className="text-[10px] text-zinc-300 hover:text-red-400">削除</button>
+                </div>
+              </div>
+              <p className="text-sm text-zinc-700 whitespace-pre-wrap">{c.body}</p>
+            </div>
+          ))}
         </div>
-        <div className="px-6 py-4 border-t border-zinc-100 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-100 rounded-xl transition-colors">キャンセル</button>
-          <button onClick={handleSave} disabled={!title.trim()}
-            className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-40">
-            <Check size={14}/> {mode==="create" ? "追加" : "保存"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-zinc-500 mb-1.5">{label}</label>
-      {children}
-    </div>
-  );
-}
+        <div className="px-6 py-4 border-t border-zinc-100 space-y-2">
+          <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="名前（省略可）"
+            className="w-full text-xs px-3 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400"/>
+          <div className="flex gap-2">
+            <textarea value={body} onChange={e => setBody(e.target.value)} placeholder="コメントを入力..."
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              rows={2} className="flex-1 text-sm px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"/>
+            <button onClick={handleSend} disabled={!body.trim()}
+              className="px-3 py-2 bg-brand-600 text-white rounded-xl hover:bg-brand-700 disabled:opacity-40 self-end">
+              <Send
