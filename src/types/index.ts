@@ -22,6 +22,7 @@ export interface Task {
   progress: number;
   assigneeId: string;
   dueDate: string;
+  order: number; 
   createdAt: string;
   updatedAt: string;
 }
