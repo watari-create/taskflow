@@ -128,7 +128,7 @@ function NewProjectButton({ onCreateProject }: { onCreateProject: (d: Omit<Proje
   return open ? (
     <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-xl px-3 py-2 shadow-sm">
       {PROJECT_COLORS.slice(0,5).map(c => (
-        <button key={c} onClick={()=>setColor(c)} className={`w-4 h-4 rounded-full ${color===c?"ring-2 ring-offset-1":""}`} style={{ background: c, ringColor: c }}/>
+        <button key={c} onClick={()=>setColor(c)} className={`w-4 h-4 rounded-full ${color===c?"ring-2 ring-offset-1":""}`} style={{ background: c }}/>
       ))}
       <input autoFocus value={name} onChange={e=>setName(e.target.value)}
         onKeyDown={e=>{ if(e.key==="Enter") handle(); if(e.key==="Escape") setOpen(false); }}
