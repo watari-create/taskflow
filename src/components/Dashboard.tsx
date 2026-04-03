@@ -151,7 +151,7 @@ function EmptyState({ onCreateProject }: { onCreateProject: (d: Omit<Project,"id
         <FolderKanban size={24} className="text-brand-400"/>
       </div>
       <p className="text-zinc-500 text-sm">プロジェクトがまだありません</p>
-      <button onClick={() => onCreateProject({ name: "新しいプロジェクト", description: "", color: PROJECT_COLORS[0], memberIds: [] })}
+      <button onClick={() => onCreateProject({ name: "新しいプロジェクト", description: "", color: PROJECT_COLORS[0], emoji: "📁", memberIds: [] })
         className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-xl hover:bg-brand-700">
         <Plus size={14}/> プロジェクトを作成
       </button>
