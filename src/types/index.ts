@@ -4,10 +4,9 @@ export type TaskStatus = "todo" | "in_progress" | "review" | "done";
 export interface Member {
   id: string;
   name: string;
-  email: string;
-  avatarColor: string;
-  role: "owner" | "member" | "viewer";
-  createdAt: string;
+  role: string;
+  color: string;  
+  // 
 }
 
 export interface Task {
