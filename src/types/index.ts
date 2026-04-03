@@ -4,10 +4,10 @@ export type TaskStatus = "todo" | "in_progress" | "review" | "done";
 export interface Member {
   id: string;
   name: string;
-  role: string;
+  email: string;
+  role: "owner" | "member" | "viewer";
   color: string;
   avatarColor: string;
-  email: string; 
   createdAt: string;
   updatedAt: string;
 }
@@ -20,7 +20,7 @@ export interface Task {
   status: TaskStatus;
   priority: Priority;
   progress: number;
-  assigneeId: string;      // 複数→単数に統一
+  assigneeId: string;
   dueDate: string;
   createdAt: string;
   updatedAt: string;
