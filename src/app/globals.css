@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+:root {
+  --sidebar-w: 240px;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: #F4F4F5;
+  color: #18181B;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* scrollbar */
+::-webkit-scrollbar        { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: #D4D4D8; border-radius: 99px; }
+
+/* progress bar fill animation */
+.progress-fill {
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* shared input style */
+.input {
+  @apply w-full text-sm px-3 py-2 border border-zinc-200 rounded-xl bg-white text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition-shadow;
+}
+
+/* card hover lift */
+.card-lift {
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.card-lift:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}

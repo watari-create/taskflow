@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 社内公開用: 認証なし・URLを知っていれば誰でも読み書き可能
+    // ※ 社外に漏れないようURLの取り扱いに注意してください
+
+    match /projects/{projectId} {
+      allow read, write: if true;
+    }
+
+    match /tasks/{taskId} {
+      allow read, write: if true;
+    }
+
+    match /members/{memberId} {
+      allow read, write: if true;
+    }
+  }
+}
