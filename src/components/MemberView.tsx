@@ -7,7 +7,7 @@ import { initials, AVATAR_COLORS } from "@/lib/utils";
 interface Props {
   members: Member[];
   projects: Project[];
-  onCreateMember: (d: Omit<Member, "id"|"createdAt">) => void;
+  onCreateMember: (d: Omit<Member, "id"|"createdAt"|"updatedAt">) => void;
   onUpdateMember: (id: string, d: Partial<Member>) => void;
   onDeleteMember: (id: string) => void;
 }
@@ -72,7 +72,6 @@ export default function MemberView({ members, projects, onCreateMember, onUpdate
                     </button>
                   </div>
                 </div>
-
                 <div className="mt-4 flex items-center gap-2 flex-wrap">
                   <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${ROLE_COLOR[m.role]}`}>
                     <Shield size={9}/> {ROLE_LABELS[m.role]}
@@ -101,7 +100,7 @@ export default function MemberView({ members, projects, onCreateMember, onUpdate
               onUpdateMember(editTarget.id, d);
               setEditTarget(null);
             } else {
-              onCreateMember(d as Omit<Member,"id"|"createdAt">);
+              onCreateMember(d as Omit<Member,"id"|"createdAt"|"updatedAt">);
               setShowModal(false);
             }
           }}
@@ -119,14 +118,10 @@ function MemberModal({ member, projects, onSave, onClose }:
   const [email, setEmail] = useState(member?.email ?? "");
   const [role,  setRole]  = useState<Member["role"]>(member?.role ?? "member");
   const [color, setColor] = useState(member?.avatarColor ?? AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]);
-  const [projectIds, setProjectIds] = useState<string[]>([]);
-
-  const toggleProject = (id: string) =>
-    setProjectIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const handleSave = () => {
     if (!name.trim()) return;
-    onSave({ name: name.trim(), email: email.trim(), role, avatarColor: color });
+    onSave({ name: name.trim(), email: email.trim(), role, avatarColor: color, color });
   };
 
   return (
@@ -140,7 +135,6 @@ function MemberModal({ member, projects, onSave, onClose }:
           </button>
         </div>
         <div className="px-6 py-5 space-y-4">
-          {/* Avatar preview */}
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-semibold text-lg shrink-0"
               style={{ background: color }}>
@@ -154,7 +148,6 @@ function MemberModal({ member, projects, onSave, onClose }:
               ))}
             </div>
           </div>
-
           <div>
             <label className="block text-xs font-medium text-zinc-500 mb-1.5">名前 *</label>
             <input value={name} onChange={e => setName(e.target.value)} autoFocus
