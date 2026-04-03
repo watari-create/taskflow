@@ -121,7 +121,7 @@ function NewProjectButton({ onCreateProject }: { onCreateProject: (d: Omit<Proje
 
   const handle = () => {
     if (!name.trim()) return;
-    onCreateProject({ name: name.trim(), description: desc.trim(), color, memberIds: [] });
+    onCreateProject({ name: name.trim(), description: desc.trim(), color, emoji: "📁", memberIds: [] });
     setName(""); setDesc(""); setColor(PROJECT_COLORS[0]); setOpen(false);
   };
 
