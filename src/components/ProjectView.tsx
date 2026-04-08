@@ -1,12 +1,12 @@
 "use client";
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Plus, Trash2, X, Check, Calendar, MessageCircle, Send, ChevronDown } from "lucide-react";
+import { Plus, Trash2, X, Check, Calendar, MessageCircle, Send, ChevronDown, AlertCircle } from "lucide-react";
 import type { Project, Task, Member, Priority, TaskStatus } from "@/types";
 import {
   PRIORITY_CONFIG, STATUS_CONFIG, progressColor,
   daysUntil, formatDate, initials,
 } from "@/lib/utils";
-import { createComment, deleteComment, subscribeCommentsByTask, type Comment } from "@/lib/db";
+import { createComment, subscribeCommentsByTask, type Comment } from "@/lib/db";
 
 interface Props {
   project: Project;
@@ -57,7 +57,6 @@ function CommentPanel({ task, members, onClose }: { task: Task; members: Member[
             <X size={16} className="text-zinc-400" />
           </button>
         </div>
-
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {comments.length === 0 && (
             <p className="text-center text-zinc-400 text-sm py-8">まだコメントがありません</p>
@@ -67,7 +66,7 @@ function CommentPanel({ task, members, onClose }: { task: Task; members: Member[
             return (
               <div key={c.id} className="flex gap-3">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                  style={{ background: m?.color ?? "#94a3b8" }}>
+                  style={{ background: m?.avatarColor ?? "#94a3b8" }}>
                   {m ? initials(m.name) : "?"}
                 </div>
                 <div className="flex-1">
@@ -82,30 +81,20 @@ function CommentPanel({ task, members, onClose }: { task: Task; members: Member[
           })}
           <div ref={bottomRef} />
         </div>
-
         <div className="px-6 py-4 border-t border-zinc-100">
           <div className="mb-2">
-            <select
-              value={authorId}
-              onChange={e => setAuthorId(e.target.value)}
-              className="text-xs text-zinc-500 border-none bg-transparent focus:outline-none cursor-pointer"
-            >
+            <select value={authorId} onChange={e => setAuthorId(e.target.value)}
+              className="text-xs text-zinc-500 border-none bg-transparent focus:outline-none cursor-pointer">
               {members.map(m => <option key={m.id} value={m.id}>{m.name} として投稿</option>)}
             </select>
           </div>
           <div className="flex gap-2">
-            <input
-              value={text}
-              onChange={e => setText(e.target.value)}
+            <input value={text} onChange={e => setText(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
               placeholder="コメントを入力… (Enterで送信)"
-              className="flex-1 text-sm border border-zinc-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
-            />
-            <button
-              onClick={send}
-              disabled={!text.trim()}
-              className="w-10 h-10 bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition-colors flex-shrink-0"
-            >
+              className="flex-1 text-sm border border-zinc-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400" />
+            <button onClick={send} disabled={!text.trim()}
+              className="w-10 h-10 bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition-colors flex-shrink-0">
               <Send size={15} />
             </button>
           </div>
@@ -116,14 +105,9 @@ function CommentPanel({ task, members, onClose }: { task: Task; members: Member[
 }
 
 // ── タスクフォーム ──────────────────────────────────────────
-function TaskForm({
-  initial, projectId, members, onSave, onCancel,
-}: {
-  initial?: Task;
-  projectId: string;
-  members: Member[];
-  onSave: (d: any) => void;
-  onCancel: () => void;
+function TaskForm({ initial, projectId, members, onSave, onCancel }: {
+  initial?: Task; projectId: string; members: Member[];
+  onSave: (d: any) => void; onCancel: () => void;
 }) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -135,25 +119,17 @@ function TaskForm({
 
   const submit = () => {
     if (!title.trim()) return;
-    onSave({ projectId, title: title.trim(), description, status, priority, progress, assigneeId, dueDate });
+    onSave({ projectId, title: title.trim(), description, status, priority, progress, assigneeId, dueDate, order: 0 });
   };
 
   return (
     <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-4">
-      <input
-        autoFocus
-        value={title}
-        onChange={e => setTitle(e.target.value)}
+      <input autoFocus value={title} onChange={e => setTitle(e.target.value)}
         placeholder="タスク名"
-        className="w-full text-sm font-medium border-b border-zinc-200 pb-2 focus:outline-none focus:border-blue-400"
-      />
-      <textarea
-        value={description}
-        onChange={e => setDescription(e.target.value)}
-        placeholder="説明（任意）"
-        rows={2}
-        className="w-full text-sm text-zinc-500 resize-none focus:outline-none"
-      />
+        className="w-full text-sm font-medium border-b border-zinc-200 pb-2 focus:outline-none focus:border-blue-400" />
+      <textarea value={description} onChange={e => setDescription(e.target.value)}
+        placeholder="説明（任意）" rows={2}
+        className="w-full text-sm text-zinc-500 resize-none focus:outline-none" />
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-xs text-zinc-400 font-medium">ステータス</label>
@@ -216,12 +192,21 @@ export default function ProjectView({
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
   const [filterStatus, setFilterStatus] = useState<TaskStatus | "all">("all");
+  const [filterMember, setFilterMember] = useState<string>("all");
   const [commentTask, setCommentTask] = useState<Task | null>(null);
 
-  const filtered = useMemo(() =>
-    filterStatus === "all" ? tasks : tasks.filter(t => t.status === filterStatus),
-    [tasks, filterStatus]
+  // 期限切れタスク（完了以外）
+  const overdueTasks = useMemo(() =>
+    tasks.filter(t => t.status !== "done" && t.dueDate && (daysUntil(t.dueDate) ?? 0) < 0),
+    [tasks]
   );
+
+  const filtered = useMemo(() => {
+    let list = tasks;
+    if (filterStatus !== "all") list = list.filter(t => t.status === filterStatus);
+    if (filterMember !== "all") list = list.filter(t => t.assigneeId === filterMember);
+    return list;
+  }, [tasks, filterStatus, filterMember]);
 
   const overallProgress = tasks.length
     ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length)
@@ -249,6 +234,34 @@ export default function ProjectView({
         </button>
       </div>
 
+      {/* 期限切れバナー */}
+      {overdueTasks.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
+          <AlertCircle size={18} className="text-red-500 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-red-700">期限切れタスクが {overdueTasks.length} 件あります</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {overdueTasks.map(t => {
+                const a = assignee(t.assigneeId);
+                const days = daysUntil(t.dueDate);
+                return (
+                  <div key={t.id} className="flex items-center gap-1.5 bg-white border border-red-100 rounded-lg px-2.5 py-1">
+                    {a && (
+                      <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0"
+                        style={{ background: a.avatarColor }}>
+                        {initials(a.name)}
+                      </div>
+                    )}
+                    <span className="text-xs text-zinc-700 font-medium">{t.title}</span>
+                    <span className="text-xs text-red-500 font-semibold">{Math.abs(days ?? 0)}日超過</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 進捗サマリー */}
       <div className="bg-white rounded-2xl border border-zinc-100 p-5 mb-6 shadow-sm">
         <div className="flex items-center justify-between mb-3">
@@ -275,19 +288,30 @@ export default function ProjectView({
       </div>
 
       {/* フィルター & 新規ボタン */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-2 flex-wrap">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          {/* ステータスフィルター */}
           {(["all", ...STATUSES] as const).map(s => (
             <button key={s} onClick={() => setFilterStatus(s)}
               className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${
-                filterStatus === s
-                  ? "bg-zinc-800 text-white"
-                  : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
+                filterStatus === s ? "bg-zinc-800 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
               }`}>
               {s === "all" ? "すべて" : STATUS_CONFIG[s].label}
             </button>
           ))}
+
+          {/* メンバーフィルター */}
+          <div className="flex items-center gap-1 ml-2">
+            <select value={filterMember} onChange={e => setFilterMember(e.target.value)}
+              className="text-xs border border-zinc-200 rounded-full px-3 py-1 focus:outline-none bg-white text-zinc-600 cursor-pointer">
+              <option value="all">👤 全員</option>
+              {members.map(m => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
+
         <button onClick={() => { setShowNewTask(true); setEditingTask(null); }}
           className="flex items-center gap-1.5 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-xl transition-colors shadow-sm">
           <Plus size={16} />
@@ -320,7 +344,7 @@ export default function ProjectView({
           const sc = STATUS_CONFIG[task.status];
           const a = assignee(task.assigneeId);
           const days = task.dueDate ? daysUntil(task.dueDate) : null;
-          const isOverdue = days !== null && days < 0;
+          const isOverdue = days !== null && days < 0 && task.status !== "done";
 
           if (editingTask?.id === task.id) {
             return (
@@ -338,7 +362,9 @@ export default function ProjectView({
 
           return (
             <div key={task.id}
-              className="bg-white border border-zinc-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow group">
+              className={`bg-white border rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow group ${
+                isOverdue ? "border-red-200" : "border-zinc-100"
+              }`}>
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -363,7 +389,6 @@ export default function ProjectView({
                   {task.description && (
                     <p className="text-xs text-zinc-400 mt-0.5 line-clamp-2">{task.description}</p>
                   )}
-                  {/* 進捗バー */}
                   <div className="mt-3 flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                       <div className="h-full rounded-full transition-all"
@@ -376,7 +401,7 @@ export default function ProjectView({
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {a && (
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                      title={a.name} style={{ background: a.color }}>
+                      title={a.name} style={{ background: a.avatarColor }}>
                       {initials(a.name)}
                     </div>
                   )}
@@ -402,7 +427,6 @@ export default function ProjectView({
         })}
       </div>
 
-      {/* コメントパネル */}
       {commentTask && (
         <CommentPanel
           task={commentTask}
