@@ -1,4 +1,4 @@
-import type { Priority, TaskStatus } from "@/types";
+import type { Priority, TaskStatus, Department } from "@/types";
 
 export const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; bg: string; dot: string }> = {
   low:      { label: "低",   color: "text-slate-500",  bg: "bg-slate-100",  dot: "bg-slate-400" },
@@ -12,6 +12,15 @@ export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; b
   in_progress: { label: "進行中",   color: "text-blue-600",   bg: "bg-blue-50" },
   review:      { label: "レビュー", color: "text-purple-600", bg: "bg-purple-50" },
   done:        { label: "完了",     color: "text-green-600",  bg: "bg-green-50" },
+};
+
+export const DEPARTMENTS: Department[] = ["宗徧流", "UCI", "山田家", "共通"];
+
+export const DEPARTMENT_CONFIG: Record<Department, { color: string; bg: string; border: string }> = {
+  "宗徧流": { color: "text-purple-700", bg: "bg-purple-50", border: "border-purple-200" },
+  "UCI":    { color: "text-blue-700",   bg: "bg-blue-50",   border: "border-blue-200" },
+  "山田家": { color: "text-amber-700",  bg: "bg-amber-50",  border: "border-amber-200" },
+  "共通":   { color: "text-zinc-600",   bg: "bg-zinc-100",  border: "border-zinc-200" },
 };
 
 export const PROJECT_COLORS = [
