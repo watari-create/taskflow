@@ -75,7 +75,7 @@ export default function Sidebar({ projects, selectedProjectId, view, currentMemb
       <nav className="px-3 py-3 space-y-0.5">
         <NavItem icon={<LayoutDashboard size={15}/>} label="ダッシュボード" active={view==="dashboard"} onClick={onSelectDashboard}/>
         <NavItem icon={<Users size={15}/>} label="メンバー管理" active={view==="members"} onClick={onSelectMembers}/>
-        <NavItem icon={<BarChart2 size={15}/>} label="週次レポート" active={view==="report"} onClick={onSelectReport}/>
+        <NavItem icon={<BarChart2 size={15}/>} label="日次レポート" active={view==="report"} onClick={onSelectReport}/>
       </nav>
 
       <div className="px-3 mt-2 flex-1 overflow-y-auto">
