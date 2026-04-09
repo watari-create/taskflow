@@ -1,15 +1,13 @@
-export type Priority = "low" | "medium" | "high" | "urgent";
+export type Priority = "low" | "medium" | "high" | "critical";
 export type TaskStatus = "todo" | "in_progress" | "review" | "done";
 
 export interface Member {
   id: string;
   name: string;
   email: string;
-  role: "owner" | "member" | "viewer";
-  color: string;
   avatarColor: string;
+  role: "owner" | "member" | "viewer";
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface Task {
@@ -20,11 +18,11 @@ export interface Task {
   status: TaskStatus;
   priority: Priority;
   progress: number;
-  assigneeId: string;
-  dueDate: string;
-  order: number; 
+  assigneeIds: string[];
+  dueDate: string | null;
   createdAt: string;
   updatedAt: string;
+  order: number;
 }
 
 export interface Project {
@@ -32,7 +30,6 @@ export interface Project {
   name: string;
   description: string;
   color: string;
-  emoji?: string;
   memberIds: string[];
   createdAt: string;
   updatedAt: string;
