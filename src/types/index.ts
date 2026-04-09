@@ -32,7 +32,7 @@ export interface Project {
   name: string;
   description: string;
   color: string;
-  emoji: string;
+  emoji?: string;
   memberIds: string[];
   createdAt: string;
   updatedAt: string;
