@@ -22,10 +22,10 @@ interface Props {
 const STATUSES: TaskStatus[] = ["todo","in_progress","review","done"];
 
 export default function ProjectView({ project, tasks, members, onUpdateProject, onDeleteProject, onCreateTask, onUpdateTask, onDeleteTask }: Props) {
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingTask,  setEditingTask]  = useState<Task | null>(null);
   const [showNewTask,  setShowNewTask]  = useState(false);
   const [filterStatus, setFilterStatus] = useState<TaskStatus | "all">("all");
-  const [commentTask, setCommentTask] = useState<Task | null>(null);
+  const [commentTask,  setCommentTask]  = useState<Task | null>(null);
 
   const filtered = useMemo(() =>
     filterStatus === "all" ? tasks : tasks.filter(t => t.status === filterStatus),
@@ -182,9 +182,9 @@ function TaskRow({ task, members, onEdit, onDelete, onProgressChange, onComment 
 }
 
 function CommentModal({ task, members, onClose }: { task: Task; members: Member[]; onClose: () => void }) {
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [author, setAuthor] = useState("");
-  const [body, setBody] = useState("");
+  const [comments,    setComments]    = useState<Comment[]>([]);
+  const [authorName,  setAuthorName]  = useState("");
+  const [body,        setBody]        = useState("");
 
   useEffect(() => {
     const unsub = subscribeCommentsByTask(task.id, setComments);
@@ -193,7 +193,7 @@ function CommentModal({ task, members, onClose }: { task: Task; members: Member[
 
   const handleSend = async () => {
     if (!body.trim()) return;
-    await createComment({ taskId: task.id, authorName: author.trim() || "名無し", body: body.trim() });
+    await createComment({ taskId: task.id, authorName: authorName.trim() || "名無し", body: body.trim() });
     setBody("");
   };
 
@@ -227,7 +227,7 @@ function CommentModal({ task, members, onClose }: { task: Task; members: Member[
           ))}
         </div>
         <div className="px-6 py-4 border-t border-zinc-100 space-y-2">
-          <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="名前（省略可）"
+          <input value={authorName} onChange={e => setAuthorName(e.target.value)} placeholder="名前（省略可）"
             className="w-full text-xs px-3 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400"/>
           <div className="flex gap-2">
             <textarea value={body} onChange={e => setBody(e.target.value)} placeholder="コメントを入力..."
