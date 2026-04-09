@@ -4,9 +4,9 @@ import {
   LayoutDashboard, Users, Plus, FolderKanban,
   ChevronRight, X, Check, BarChart2, LogOut
 } from "lucide-react";
-import type { Project, Member } from "@/types";
+import type { Project, Member, Department } from "@/types";
 import type { View } from "./App";
-import { PROJECT_COLORS, initials } from "@/lib/utils";
+import { PROJECT_COLORS, DEPARTMENTS, DEPARTMENT_CONFIG, initials } from "@/lib/utils";
 
 interface Props {
   projects: Project[];
@@ -22,16 +22,22 @@ interface Props {
 }
 
 export default function Sidebar({ projects, selectedProjectId, view, currentMember, onSelectProject, onSelectDashboard, onSelectMembers, onSelectReport, onCreateProject, onSwitchMember }: Props) {
-  const [creating, setCreating] = useState(false);
-  const [name,  setName]  = useState("");
-  const [desc,  setDesc]  = useState("");
-  const [color, setColor] = useState(PROJECT_COLORS[0]);
+  const [creating,    setCreating]    = useState(false);
+  const [name,        setName]        = useState("");
+  const [desc,        setDesc]        = useState("");
+  const [color,       setColor]       = useState(PROJECT_COLORS[0]);
+  const [department,  setDepartment]  = useState<Department>("共通");
+  const [filterDept,  setFilterDept]  = useState<Department | "all">("all");
 
   const handleCreate = () => {
     if (!name.trim()) return;
-    onCreateProject({ name: name.trim(), description: desc.trim(), color, memberIds: [] });
-    setName(""); setDesc(""); setColor(PROJECT_COLORS[0]); setCreating(false);
+    onCreateProject({ name: name.trim(), description: desc.trim(), color, department, memberIds: [] });
+    setName(""); setDesc(""); setColor(PROJECT_COLORS[0]); setDepartment("共通"); setCreating(false);
   };
+
+  const filteredProjects = filterDept === "all"
+    ? projects
+    : projects.filter(p => p.department === filterDept);
 
   return (
     <aside className="w-[240px] h-full bg-white border-r border-zinc-200 flex flex-col select-none shrink-0">
@@ -55,7 +61,7 @@ export default function Sidebar({ projects, selectedProjectId, view, currentMemb
                 </div>
                 <div>
                   <p className="text-xs font-medium text-zinc-800">{currentMember.name}</p>
-                  <p className="text-[10px] text-zinc-400">ログイン中</p>
+                  <p className="text-[10px] text-zinc-400">{currentMember.department ?? "部門未設定"}</p>
                 </div>
               </>
             ) : (
@@ -78,22 +84,45 @@ export default function Sidebar({ projects, selectedProjectId, view, currentMemb
         <NavItem icon={<BarChart2 size={15}/>} label="日次レポート" active={view==="report"} onClick={onSelectReport}/>
       </nav>
 
-      <div className="px-3 mt-2 flex-1 overflow-y-auto">
+      <div className="px-3 mt-1 flex-1 overflow-y-auto">
         <div className="flex items-center justify-between px-2 mb-1.5">
           <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Projects</span>
           <button onClick={() => setCreating(true)} className="w-5 h-5 rounded flex items-center justify-center hover:bg-zinc-100 transition-colors">
             <Plus size={13} className="text-zinc-500"/>
           </button>
         </div>
+
+        {/* 部門フィルター */}
+        <div className="flex gap-1 flex-wrap mb-2 px-1">
+          <button onClick={() => setFilterDept("all")}
+            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${filterDept === "all" ? "bg-zinc-800 text-white border-zinc-800" : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"}`}>
+            すべて
+          </button>
+          {DEPARTMENTS.map(d => (
+            <button key={d} onClick={() => setFilterDept(d)}
+              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${filterDept === d ? `${DEPARTMENT_CONFIG[d].bg} ${DEPARTMENT_CONFIG[d].color} ${DEPARTMENT_CONFIG[d].border}` : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"}`}>
+              {d}
+            </button>
+          ))}
+        </div>
+
         <div className="space-y-0.5">
-          {projects.map(p => (
+          {filteredProjects.map(p => (
             <button key={p.id} onClick={() => onSelectProject(p.id)}
               className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors group ${selectedProjectId===p.id ? "bg-brand-50 text-brand-700" : "hover:bg-zinc-50 text-zinc-600"}`}>
               <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }}/>
               <span className="text-[13px] truncate flex-1">{p.name}</span>
+              {p.department && p.department !== "共通" && (
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full shrink-0 ${DEPARTMENT_CONFIG[p.department].bg} ${DEPARTMENT_CONFIG[p.department].color}`}>
+                  {p.department}
+                </span>
+              )}
               <ChevronRight size={12} className={`shrink-0 transition-opacity ${selectedProjectId===p.id ? "opacity-60" : "opacity-0 group-hover:opacity-30"}`}/>
             </button>
           ))}
+          {filteredProjects.length === 0 && (
+            <p className="text-[11px] text-zinc-400 text-center py-4">プロジェクトなし</p>
+          )}
         </div>
 
         {creating && (
@@ -103,6 +132,10 @@ export default function Sidebar({ projects, selectedProjectId, view, currentMemb
               placeholder="プロジェクト名" className="w-full text-[13px] px-2.5 py-1.5 border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-400"/>
             <input value={desc} onChange={e=>setDesc(e.target.value)}
               placeholder="説明（任意）" className="w-full text-[13px] px-2.5 py-1.5 border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-400"/>
+            <select value={department} onChange={e => setDepartment(e.target.value as Department)}
+              className="w-full text-[13px] px-2.5 py-1.5 border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-400">
+              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
             <div className="flex gap-1 flex-wrap">
               {PROJECT_COLORS.map(c => (
                 <button key={c} onClick={()=>setColor(c)}
