@@ -20,7 +20,7 @@ const ROLE_COLOR: Record<Member["role"], string> = {
   viewer: "bg-zinc-100 text-zinc-500",
 };
 
-export default function MemberView({ members, projects, onCreateMember, onUpdateMember, onDeleteMember }: Props) {
+export default function MemberView({ members, projects, , onUpdateMember, onDeleteMember }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [editTarget, setEditTarget] = useState<Member | null>(null);
 
@@ -100,8 +100,7 @@ export default function MemberView({ members, projects, onCreateMember, onUpdate
               onUpdateMember(editTarget.id, d);
               setEditTarget(null);
             } else {
-              onCreateMember(d as Omit<Member,"id"|"createdAt"|"updatedAt">);
-              setShowModal(false);
+              onCreateMember(d as Omit<Member,"id"|"createdAt">);
             }
           }}
           onClose={() => { setShowModal(false); setEditTarget(null); }}
