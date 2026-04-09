@@ -1,12 +1,13 @@
 "use client";
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Trash2, MoreHorizontal, X, Check, Calendar, MessageCircle, Send } from "lucide-react";
+import { Plus, Trash2, MoreHorizontal, X, Check, Calendar, MessageCircle, Send, Pencil } from "lucide-react";
 import type { Project, Task, Member, Priority, TaskStatus } from "@/types";
 import {
   PRIORITY_CONFIG, STATUS_CONFIG, progressColor,
-  daysUntil, formatDate, initials,
+  daysUntil, formatDate, initials, PROJECT_COLORS, DEPARTMENTS, DEPARTMENT_CONFIG,
 } from "@/lib/utils";
 import { createComment, deleteComment, subscribeCommentsByTask, type Comment } from "@/lib/db";
+import type { Department } from "@/types";
 
 interface Props {
   project: Project;
@@ -22,10 +23,11 @@ interface Props {
 const STATUSES: TaskStatus[] = ["todo","in_progress","review","done"];
 
 export default function ProjectView({ project, tasks, members, onUpdateProject, onDeleteProject, onCreateTask, onUpdateTask, onDeleteTask }: Props) {
-  const [editingTask,  setEditingTask]  = useState<Task | null>(null);
-  const [showNewTask,  setShowNewTask]  = useState(false);
-  const [filterStatus, setFilterStatus] = useState<TaskStatus | "all">("all");
-  const [commentTask,  setCommentTask]  = useState<Task | null>(null);
+  const [editingTask,    setEditingTask]    = useState<Task | null>(null);
+  const [showNewTask,    setShowNewTask]    = useState(false);
+  const [filterStatus,   setFilterStatus]   = useState<TaskStatus | "all">("all");
+  const [commentTask,    setCommentTask]    = useState<Task | null>(null);
+  const [showEditProject, setShowEditProject] = useState(false);
 
   const filtered = useMemo(() =>
     filterStatus === "all" ? tasks : tasks.filter(t => t.status === filterStatus),
@@ -44,14 +46,27 @@ export default function ProjectView({ project, tasks, members, onUpdateProject, 
             {project.name[0]}
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-zinc-900">{project.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold text-zinc-900">{project.name}</h1>
+              {project.department && (
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${DEPARTMENT_CONFIG[project.department].bg} ${DEPARTMENT_CONFIG[project.department].color}`}>
+                  {project.department}
+                </span>
+              )}
+            </div>
             {project.description && <p className="text-sm text-zinc-500 mt-0.5">{project.description}</p>}
           </div>
         </div>
-        <button onClick={() => { if(confirm("プロジェクトを削除しますか？")) onDeleteProject(project.id); }}
-          className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50">
-          <Trash2 size={13}/> 削除
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowEditProject(true)}
+            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-brand-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-brand-50">
+            <Pencil size={13}/> 編集
+          </button>
+          <button onClick={() => { if(confirm("プロジェクトを削除しますか？")) onDeleteProject(project.id); }}
+            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50">
+            <Trash2 size={13}/> 削除
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-zinc-200 p-5 mb-6">
@@ -116,10 +131,77 @@ export default function ProjectView({ project, tasks, members, onUpdateProject, 
       {commentTask && (
         <CommentModal task={commentTask} members={members} onClose={() => setCommentTask(null)} />
       )}
+      {showEditProject && (
+        <EditProjectModal project={project}
+          onSave={d => { onUpdateProject(project.id, d); setShowEditProject(false); }}
+          onClose={() => setShowEditProject(false)}
+        />
+      )}
     </div>
   );
 }
 
+/* ---- EditProjectModal ---- */
+function EditProjectModal({ project, onSave, onClose }:
+  { project: Project; onSave: (d: Partial<Project>) => void; onClose: () => void }) {
+  const [name,       setName]       = useState(project.name);
+  const [desc,       setDesc]       = useState(project.description);
+  const [color,      setColor]      = useState(project.color);
+  const [department, setDepartment] = useState<Department>(project.department ?? "共通");
+
+  const handleSave = () => {
+    if (!name.trim()) return;
+    onSave({ name: name.trim(), description: desc.trim(), color, department });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={e => { if(e.target===e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+          <h2 className="font-semibold text-zinc-900">プロジェクトを編集</h2>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-zinc-100">
+            <X size={15} className="text-zinc-400"/>
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 mb-1.5">プロジェクト名 *</label>
+            <input value={name} onChange={e => setName(e.target.value)} autoFocus className="input"/>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 mb-1.5">説明</label>
+            <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={2} className="input resize-none"/>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 mb-1.5">部門</label>
+            <select value={department} onChange={e => setDepartment(e.target.value as Department)} className="input">
+              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 mb-2">カラー</label>
+            <div className="flex gap-2 flex-wrap">
+              {PROJECT_COLORS.map(c => (
+                <button key={c} onClick={() => setColor(c)}
+                  className={`w-7 h-7 rounded-full transition-transform ${color===c ? "scale-125 ring-2 ring-offset-1" : "hover:scale-110"}`}
+                  style={{ background: c }}/>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-zinc-100 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-100 rounded-xl">キャンセル</button>
+          <button onClick={handleSave} disabled={!name.trim()}
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-40">
+            <Check size={14}/> 保存
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---- TaskRow ---- */
 function TaskRow({ task, members, onEdit, onDelete, onProgressChange, onComment }:
   { task: Task; members: Member[]; onEdit: () => void; onDelete: () => void; onProgressChange: (p: number) => void; onComment: () => void }) {
   const pc = PRIORITY_CONFIG[task.priority];
@@ -181,10 +263,11 @@ function TaskRow({ task, members, onEdit, onDelete, onProgressChange, onComment 
   );
 }
 
+/* ---- CommentModal ---- */
 function CommentModal({ task, members, onClose }: { task: Task; members: Member[]; onClose: () => void }) {
-  const [comments,    setComments]    = useState<Comment[]>([]);
-  const [authorName,  setAuthorName]  = useState("");
-  const [body,        setBody]        = useState("");
+  const [comments,   setComments]   = useState<Comment[]>([]);
+  const [authorName, setAuthorName] = useState("");
+  const [body,       setBody]       = useState("");
 
   useEffect(() => {
     const unsub = subscribeCommentsByTask(task.id, setComments);
@@ -245,6 +328,7 @@ function CommentModal({ task, members, onClose }: { task: Task; members: Member[
   );
 }
 
+/* ---- TaskModal ---- */
 function TaskModal({ mode, project, members, tasks, task, onSave, onClose }:
   { mode: "create"|"edit"; project: Project; members: Member[]; tasks: Task[]; task?: Task;
     onSave: (d: Omit<Task,"id"|"createdAt"|"updatedAt">) => void; onClose: () => void }) {
@@ -283,12 +367,10 @@ function TaskModal({ mode, project, members, tasks, task, onSave, onClose }:
         </div>
         <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
           <Field label="タスク名 *">
-            <input value={title} onChange={e=>setTitle(e.target.value)} autoFocus
-              placeholder="タスク名を入力" className="input"/>
+            <input value={title} onChange={e=>setTitle(e.target.value)} autoFocus placeholder="タスク名を入力" className="input"/>
           </Field>
           <Field label="説明">
-            <textarea value={description} onChange={e=>setDescription(e.target.value)} rows={2}
-              placeholder="詳細を記述（任意）" className="input resize-none"/>
+            <textarea value={description} onChange={e=>setDescription(e.target.value)} rows={2} placeholder="詳細を記述（任意）" className="input resize-none"/>
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="ステータス">
