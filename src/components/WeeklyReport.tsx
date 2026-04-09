@@ -99,7 +99,7 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
     ].join("\n");
   };
 
-  const handleSend = async (mode: "all" | "mine") => {
+const handleSend = async (mode: "all" | "mine") => {
     setSending(true); setError("");
     try {
       const res = await fetch("/api/slack-report", {
