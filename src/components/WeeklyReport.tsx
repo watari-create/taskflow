@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Send, CheckCircle2, AlertTriangle, Calendar, Users, FolderKanban, TrendingUp, XCircle, FileText } from "lucide-react";
-import type { Project, Member, Task } from "@/types";
+import type { Project, Member, Task, Department } from "@/types";
 import { subscribeTasksByProject, saveDailyMemo, subscribeDailyMemosByDate, type DailyMemo } from "@/lib/db";
-import { progressColor, initials, formatDate, daysUntil } from "@/lib/utils";
+import { progressColor, initials, formatDate, daysUntil, DEPARTMENTS, DEPARTMENT_CONFIG } from "@/lib/utils";
 
 interface Props {
   projects: Project[];
@@ -14,16 +14,17 @@ interface Props {
 type Tab = "all" | "mine" | "unachieved" | "memo";
 
 export default function WeeklyReport({ projects, members, currentMember }: Props) {
-  const [taskMap,  setTaskMap]  = useState<Record<string, Task[]>>({});
-  const [sending,  setSending]  = useState(false);
-  const [sent,     setSent]     = useState(false);
-  const [sentMine, setSentMine] = useState(false);
-  const [error,    setError]    = useState("");
-  const [tab,      setTab]      = useState<Tab>("all");
-  const [memos,    setMemos]    = useState<DailyMemo[]>([]);
-  const [myMemo,   setMyMemo]   = useState("");
-  const [saving,   setSaving]   = useState(false);
-  const [savedOk,  setSavedOk]  = useState(false);
+  const [taskMap,    setTaskMap]    = useState<Record<string, Task[]>>({});
+  const [sending,    setSending]    = useState(false);
+  const [sent,       setSent]       = useState(false);
+  const [sentMine,   setSentMine]   = useState(false);
+  const [error,      setError]      = useState("");
+  const [tab,        setTab]        = useState<Tab>("all");
+  const [memos,      setMemos]      = useState<DailyMemo[]>([]);
+  const [myMemo,     setMyMemo]     = useState("");
+  const [saving,     setSaving]     = useState(false);
+  const [savedOk,    setSavedOk]    = useState(false);
+  const [filterDept, setFilterDept] = useState<Department | "all">("all");
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -60,10 +61,13 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
   const todayLabel = now.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
   const weekLabel  = `${monday.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}〜${sunday.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}`;
 
-  const doneTasks       = allTasks.filter(t => t.status === "done");
-  const overdueTasks    = allTasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== "done");
-  const soonTasks       = allTasks.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d >= 0 && d <= 3 && t.status !== "done"; });
-  const unachievedTasks = allTasks.filter(t => t.status !== "done" && ((t.dueDate && new Date(t.dueDate) < now) || (t.status === "todo" && t.progress === 0)));
+  const filteredProjects = filterDept === "all" ? projects : projects.filter(p => p.department === filterDept);
+  const filteredTasks    = filterDept === "all" ? allTasks : allTasks.filter(t => filteredProjects.some(p => p.id === t.projectId));
+
+  const doneTasks       = filteredTasks.filter(t => t.status === "done");
+  const overdueTasks    = filteredTasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== "done");
+  const soonTasks       = filteredTasks.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d >= 0 && d <= 3 && t.status !== "done"; });
+  const unachievedTasks = filteredTasks.filter(t => t.status !== "done" && ((t.dueDate && new Date(t.dueDate) < now) || (t.status === "todo" && t.progress === 0)));
 
   const myTasks      = currentMember ? allTasks.filter(t => t.assigneeIds.includes(currentMember.id)) : [];
   const myDone       = myTasks.filter(t => t.status === "done");
@@ -78,10 +82,10 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
 
   const memberStats = members.map(m => ({
     member: m,
-    done:       allTasks.filter(t => t.assigneeIds.includes(m.id) && t.status === "done").length,
-    active:     allTasks.filter(t => t.assigneeIds.includes(m.id) && t.status === "in_progress").length,
-    unachieved: allTasks.filter(t => t.assigneeIds.includes(m.id) && t.status !== "done" && ((t.dueDate && new Date(t.dueDate) < now) || (t.status === "todo" && t.progress === 0))).length,
-  }));
+    done:       filteredTasks.filter(t => t.assigneeIds.includes(m.id) && t.status === "done").length,
+    active:     filteredTasks.filter(t => t.assigneeIds.includes(m.id) && t.status === "in_progress").length,
+    unachieved: filteredTasks.filter(t => t.assigneeIds.includes(m.id) && t.status !== "done" && ((t.dueDate && new Date(t.dueDate) < now) || (t.status === "todo" && t.progress === 0))).length,
+  })).filter(s => s.done + s.active + s.unachieved > 0 || filterDept === "all");
 
   const handleSaveMemo = async () => {
     if (!currentMember || !myMemo.trim()) return;
@@ -119,11 +123,12 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
         myMemoLine ? `\n*📝 今日のメモ*\n${myMemoLine.body}` : "",
       ].join("\n");
     }
-    const projLines = projects.map(p => `${bar(projectProgress(p.id))} ${p.name} ${projectProgress(p.id)}%`).join("\n");
+    const deptLabel = filterDept === "all" ? "" : `【${filterDept}】`;
+    const projLines = filteredProjects.map(p => `${bar(projectProgress(p.id))} ${p.name} ${projectProgress(p.id)}%`).join("\n");
     const overdueLines = overdueTasks.slice(0, 3).map(t => `• ${t.title}（${Math.abs(daysUntil(t.dueDate) ?? 0)}日超過）`).join("\n");
     const soonLines    = soonTasks.slice(0, 3).map(t => `• ${t.title}（あと${daysUntil(t.dueDate)}日）`).join("\n");
     return [
-      `📊 *日次進捗レポート｜${todayLabel}*`,
+      `📊 *日次進捗レポート${deptLabel}｜${todayLabel}*`,
       "",
       `✅ 完了: *${doneTasks.length}件*　⚠️ 期限超過: *${overdueTasks.length}件*　📅 3日以内期限: *${soonTasks.length}件*`,
       "",
@@ -149,7 +154,7 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
       if (mode === "all") { setSent(true); setTimeout(() => setSent(false), 4000); }
       else                { setSentMine(true); setTimeout(() => setSentMine(false), 4000); }
     } catch {
-      setError("送信に失敗しました。Webhook URLを確認してください。");
+      setError("送信に失敗しました。");
     } finally {
       setSending(false);
     }
@@ -180,6 +185,21 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
         </div>
       </div>
 
+      {/* 部門フィルター */}
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        <span className="text-xs text-zinc-400 font-medium">部門:</span>
+        <button onClick={() => setFilterDept("all")}
+          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${filterDept === "all" ? "bg-zinc-800 text-white border-zinc-800" : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}>
+          すべて
+        </button>
+        {DEPARTMENTS.map(d => (
+          <button key={d} onClick={() => setFilterDept(d)}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${filterDept === d ? `${DEPARTMENT_CONFIG[d].bg} ${DEPARTMENT_CONFIG[d].color} ${DEPARTMENT_CONFIG[d].border}` : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}>
+            {d}
+          </button>
+        ))}
+      </div>
+
       <div className="flex gap-2 mb-6 flex-wrap">
         {([
           { key: "all",        label: "全体サマリー" },
@@ -203,7 +223,7 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
       {tab === "all" && (
         <>
           <div className="grid grid-cols-4 gap-4 mb-6">
-            <SummaryCard icon={<FolderKanban size={18} className="text-brand-500"/>} label="進行中プロジェクト" value={projects.length} bg="bg-brand-50"/>
+            <SummaryCard icon={<FolderKanban size={18} className="text-brand-500"/>} label="プロジェクト" value={filteredProjects.length} bg="bg-brand-50"/>
             <SummaryCard icon={<CheckCircle2 size={18} className="text-green-500"/>} label="完了タスク" value={doneTasks.length} bg="bg-green-50"/>
             <SummaryCard icon={<AlertTriangle size={18} className="text-red-500"/>} label="期限超過" value={overdueTasks.length} bg="bg-red-50" valueColor="text-red-600"/>
             <SummaryCard icon={<Calendar size={18} className="text-amber-500"/>} label="3日以内期限" value={soonTasks.length} bg="bg-amber-50" valueColor="text-amber-600"/>
@@ -211,8 +231,8 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
           <div className="grid grid-cols-2 gap-5 mb-5">
             <div className="bg-white rounded-2xl border border-zinc-200 p-5">
               <h2 className="text-sm font-semibold text-zinc-900 mb-4 flex items-center gap-2"><TrendingUp size={15} className="text-brand-500"/> プロジェクト別進捗</h2>
-              {projects.length === 0 ? <p className="text-xs text-zinc-400 py-4 text-center">プロジェクトはありません</p>
-                : projects.map(p => {
+              {filteredProjects.length === 0 ? <p className="text-xs text-zinc-400 py-4 text-center">プロジェクトはありません</p>
+                : filteredProjects.map(p => {
                   const pct = projectProgress(p.id);
                   return (
                     <div key={p.id} className="flex items-center gap-3 mb-3 last:mb-0">
@@ -235,6 +255,11 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
                       {initials(member.name)}
                     </div>
                     <span className="text-xs text-zinc-700 flex-1">{member.name}</span>
+                    {member.department && (
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${DEPARTMENT_CONFIG[member.department].bg} ${DEPARTMENT_CONFIG[member.department].color}`}>
+                        {member.department}
+                      </span>
+                    )}
                     <span className="text-xs text-green-600 font-medium">✓{done}</span>
                     <span className="text-xs text-blue-500 font-medium">●{active}</span>
                     {unachieved > 0 && <span className="text-xs text-red-500 font-medium">✗{unachieved}</span>}
@@ -300,7 +325,7 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
         <>
           <div className="grid grid-cols-2 gap-4 mb-6">
             <SummaryCard icon={<AlertTriangle size={18} className="text-red-500"/>} label="期限超過タスク" value={overdueTasks.length} bg="bg-red-50" valueColor="text-red-600"/>
-            <SummaryCard icon={<XCircle size={18} className="text-zinc-400"/>} label="未着手タスク" value={allTasks.filter(t => t.status === "todo" && t.progress === 0).length} bg="bg-zinc-100"/>
+            <SummaryCard icon={<XCircle size={18} className="text-zinc-400"/>} label="未着手タスク" value={filteredTasks.filter(t => t.status === "todo" && t.progress === 0).length} bg="bg-zinc-100"/>
           </div>
           <div className="bg-white rounded-2xl border border-zinc-200 p-5">
             <h2 className="text-sm font-semibold text-zinc-900 mb-4 flex items-center gap-2">
@@ -326,7 +351,16 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
                         <p className="text-xs font-medium text-zinc-800 truncate">{t.title}</p>
                         <p className="text-[10px] text-zinc-400 mt-0.5">{isOverdue ? `${Math.abs(days ?? 0)}日超過` : "未着手・進捗0%"}</p>
                       </div>
-                      {proj && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-zinc-200 text-zinc-500 shrink-0">{proj.name}</span>}
+                      {proj && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {proj.department && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${DEPARTMENT_CONFIG[proj.department].bg} ${DEPARTMENT_CONFIG[proj.department].color}`}>
+                              {proj.department}
+                            </span>
+                          )}
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-zinc-200 text-zinc-500">{proj.name}</span>
+                        </div>
+                      )}
                       {assign.length > 0 && (
                         <div className="flex -space-x-1 shrink-0">
                           {assign.slice(0,2).map(m => (
@@ -362,7 +396,7 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
               <textarea
                 value={myMemo}
                 onChange={e => setMyMemo(e.target.value)}
-                placeholder={`今日やったこと、進捗、気になったことを書いてください...\n\n例）\n・〇〇プロジェクトのUI修正完了\n・△△の件、確認中\n・来週までに□□を仕上げる予定`}
+                placeholder={`今日やったこと、進捗、気になったことを書いてください...\n\n例）\n・〇〇の修正完了\n・△△の件、確認中\n・来週までに□□を仕上げる予定`}
                 rows={5}
                 className="w-full text-sm px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none text-zinc-800 placeholder-zinc-400"
               />
@@ -389,20 +423,28 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
               <p className="text-xs text-zinc-400 py-6 text-center">まだ誰もメモを書いていません</p>
             ) : (
               <div className="space-y-4">
-                {memos.map(m => (
-                  <div key={m.id} className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0" style={{ background: m.avatarColor }}>
-                      {initials(m.memberName)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-medium text-zinc-800">{m.memberName}</span>
-                        <span className="text-[10px] text-zinc-400">{new Date(m.updatedAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</span>
+                {memos.map(m => {
+                  const member = members.find(mem => mem.id === m.memberId);
+                  return (
+                    <div key={m.id} className="flex gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0" style={{ background: m.avatarColor }}>
+                        {initials(m.memberName)}
                       </div>
-                      <p className="text-xs text-zinc-600 bg-zinc-50 rounded-xl px-4 py-3 whitespace-pre-wrap leading-relaxed">{m.body}</p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-medium text-zinc-800">{m.memberName}</span>
+                          {member?.department && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${DEPARTMENT_CONFIG[member.department].bg} ${DEPARTMENT_CONFIG[member.department].color}`}>
+                              {member.department}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-zinc-400">{new Date(m.updatedAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</span>
+                        </div>
+                        <p className="text-xs text-zinc-600 bg-zinc-50 rounded-xl px-4 py-3 whitespace-pre-wrap leading-relaxed">{m.body}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
