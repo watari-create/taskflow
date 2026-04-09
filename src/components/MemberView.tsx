@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
 import { Plus, Trash2, Edit2, X, Check, Mail, Shield } from "lucide-react";
-import type { Member, Project } from "@/types";
-import { initials, AVATAR_COLORS } from "@/lib/utils";
+import type { Member, Project, Department } from "@/types";
+import { initials, AVATAR_COLORS, DEPARTMENTS, DEPARTMENT_CONFIG } from "@/lib/utils";
 
 interface Props {
   members: Member[];
@@ -21,12 +21,17 @@ const ROLE_COLOR: Record<Member["role"], string> = {
 };
 
 export default function MemberView({ members, projects, onCreateMember, onUpdateMember, onDeleteMember }: Props) {
-  const [showModal,  setShowModal]  = useState(false);
-  const [editTarget, setEditTarget] = useState<Member | null>(null);
+  const [showModal,   setShowModal]   = useState(false);
+  const [editTarget,  setEditTarget]  = useState<Member | null>(null);
+  const [filterDept,  setFilterDept]  = useState<Department | "all">("all");
+
+  const filteredMembers = filterDept === "all"
+    ? members
+    : members.filter(m => m.department === filterDept);
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900">メンバー管理</h1>
           <p className="text-zinc-500 text-sm mt-1">{members.length} 名のメンバー</p>
@@ -37,14 +42,29 @@ export default function MemberView({ members, projects, onCreateMember, onUpdate
         </button>
       </div>
 
-      {members.length === 0 ? (
+      {/* 部門フィルター */}
+      <div className="flex items-center gap-2 mb-6 flex-wrap">
+        <span className="text-xs text-zinc-400 font-medium">部門:</span>
+        <button onClick={() => setFilterDept("all")}
+          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${filterDept === "all" ? "bg-zinc-800 text-white border-zinc-800" : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}>
+          すべて
+        </button>
+        {DEPARTMENTS.map(d => (
+          <button key={d} onClick={() => setFilterDept(d)}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${filterDept === d ? `${DEPARTMENT_CONFIG[d].bg} ${DEPARTMENT_CONFIG[d].color} ${DEPARTMENT_CONFIG[d].border}` : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}>
+            {d}
+          </button>
+        ))}
+      </div>
+
+      {filteredMembers.length === 0 ? (
         <div className="bg-white rounded-2xl border border-dashed border-zinc-300 flex flex-col items-center justify-center py-20 gap-4 text-zinc-400">
           <div className="w-14 h-14 rounded-2xl bg-zinc-50 flex items-center justify-center text-2xl">👤</div>
           <p className="text-sm">メンバーはまだいません</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4">
-          {members.map(m => {
+          {filteredMembers.map(m => {
             const memberProjects = projects.filter(p => p.memberIds.includes(m.id));
             return (
               <div key={m.id} className="card-lift bg-white rounded-2xl border border-zinc-200 p-5">
@@ -76,12 +96,17 @@ export default function MemberView({ members, projects, onCreateMember, onUpdate
                   <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${ROLE_COLOR[m.role]}`}>
                     <Shield size={9}/> {ROLE_LABELS[m.role]}
                   </span>
-                  {memberProjects.slice(0,3).map(p => (
+                  {m.department && (
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${DEPARTMENT_CONFIG[m.department].bg} ${DEPARTMENT_CONFIG[m.department].color}`}>
+                      {m.department}
+                    </span>
+                  )}
+                  {memberProjects.slice(0,2).map(p => (
                     <span key={p.id} className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500" style={{ borderLeft: `3px solid ${p.color}` }}>
                       {p.name}
                     </span>
                   ))}
-                  {memberProjects.length > 3 && <span className="text-[11px] text-zinc-400">+{memberProjects.length - 3}</span>}
+                  {memberProjects.length > 2 && <span className="text-[11px] text-zinc-400">+{memberProjects.length - 2}</span>}
                 </div>
               </div>
             );
@@ -105,14 +130,15 @@ export default function MemberView({ members, projects, onCreateMember, onUpdate
 
 function MemberModal({ member, onSave, onClose }:
   { member?: Member; onSave: (d: Partial<Member>) => void; onClose: () => void }) {
-  const [name,       setName]       = useState(member?.name ?? "");
-  const [email,      setEmail]      = useState(member?.email ?? "");
-  const [role,       setRole]       = useState<Member["role"]>(member?.role ?? "member");
+  const [name,        setName]        = useState(member?.name ?? "");
+  const [email,       setEmail]       = useState(member?.email ?? "");
+  const [role,        setRole]        = useState<Member["role"]>(member?.role ?? "member");
+  const [department,  setDepartment]  = useState<Department>(member?.department ?? "共通");
   const [avatarColor, setAvatarColor] = useState(member?.avatarColor ?? AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]);
 
   const handleSave = () => {
     if (!name.trim()) return;
-    onSave({ name: name.trim(), email: email.trim(), role, avatarColor });
+    onSave({ name: name.trim(), email: email.trim(), role, department, avatarColor });
   };
 
   return (
@@ -148,6 +174,12 @@ function MemberModal({ member, onSave, onClose }:
             <label className="block text-xs font-medium text-zinc-500 mb-1.5">メールアドレス</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
               placeholder="taro@example.com" className="input"/>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 mb-1.5">部門</label>
+            <select value={department} onChange={e => setDepartment(e.target.value as Department)} className="input">
+              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-500 mb-1.5">ロール</label>
