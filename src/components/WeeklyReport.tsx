@@ -14,7 +14,7 @@ interface Props {
 type Tab = "all" | "mine" | "unachieved";
 
 export default function WeeklyReport({ projects, members, currentMember }: Props) {
-  const [taskMap, setTaskMap] = useState<Record<string, Task[]>>({});
+  const [taskMap,  setTaskMap]  = useState<Record<string, Task[]>>({});
   const [sending,  setSending]  = useState(false);
   const [sent,     setSent]     = useState(false);
   const [sentMine, setSentMine] = useState(false);
@@ -84,7 +84,7 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
     }
     const projLines = projects.map(p => `${bar(projectProgress(p.id))} ${p.name} ${projectProgress(p.id)}%`).join("\n");
     const overdueLines = overdueTasks.slice(0, 3).map(t => `• ${t.title}（${Math.abs(daysUntil(t.dueDate) ?? 0)}日超過）`).join("\n");
-    const soonLines = soonTasks.slice(0, 3).map(t => `• ${t.title}（あと${daysUntil(t.dueDate)}日）`).join("\n");
+    const soonLines    = soonTasks.slice(0, 3).map(t => `• ${t.title}（あと${daysUntil(t.dueDate)}日）`).join("\n");
     return [
       `📊 *日次進捗レポート｜${todayLabel}*`,
       "",
@@ -95,7 +95,7 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
       projLines || "（プロジェクトなし）",
       "```",
       overdueLines ? `\n*期限超過タスク*\n${overdueLines}` : "",
-      soonLines    ? `\n*もうすぐ期限*\n${soonLines}` : "",
+      soonLines    ? `\n*もうすぐ期限*\n${soonLines}`    : "",
     ].join("\n");
   };
 
@@ -273,9 +273,9 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
             ) : (
               <div className="space-y-2">
                 {unachievedTasks.map(t => {
-                  const proj   = projects.find(p => p.id === t.projectId);
-                  const assign = members.filter(m => t.assigneeIds.includes(m.id));
-                  const days   = daysUntil(t.dueDate);
+                  const proj    = projects.find(p => p.id === t.projectId);
+                  const assign  = members.filter(m => t.assigneeIds.includes(m.id));
+                  const days    = daysUntil(t.dueDate);
                   const isOverdue = t.dueDate && new Date(t.dueDate) < now;
                   return (
                     <div key={t.id} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${isOverdue ? "bg-red-50 border-red-200" : "bg-zinc-50 border-zinc-100"}`}>
