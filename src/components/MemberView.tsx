@@ -7,7 +7,7 @@ import { initials, AVATAR_COLORS } from "@/lib/utils";
 interface Props {
   members: Member[];
   projects: Project[];
-  onCreateMember: (data: Omit<Member, "id"|"createdAt">) => void;
+  onCreateMember: (d: Omit<Member, "id"|"createdAt">) => void;
   onUpdateMember: (id: string, d: Partial<Member>) => void;
   onDeleteMember: (id: string) => void;
 }
@@ -81,9 +81,7 @@ export default function MemberView({ members, projects, onCreateMember, onUpdate
                       {p.name}
                     </span>
                   ))}
-                  {memberProjects.length > 3 && (
-                    <span className="text-[11px] text-zinc-400">+{memberProjects.length - 3}</span>
-                  )}
+                  {memberProjects.length > 3 && <span className="text-[11px] text-zinc-400">+{memberProjects.length - 3}</span>}
                 </div>
               </div>
             );
@@ -94,14 +92,9 @@ export default function MemberView({ members, projects, onCreateMember, onUpdate
       {(showModal || editTarget) && (
         <MemberModal
           member={editTarget ?? undefined}
-          projects={projects}
           onSave={d => {
-            if (editTarget) {
-              onUpdateMember(editTarget.id, d);
-              setEditTarget(null);
-            } else {
-              onCreateMember(d as Omit<Member,"id"|"createdAt">);
-            }
+            if (editTarget) { onUpdateMember(editTarget.id, d); setEditTarget(null); }
+            else { onCreateMember(d as Omit<Member,"id"|"createdAt">); setShowModal(false); }
           }}
           onClose={() => { setShowModal(false); setEditTarget(null); }}
         />
@@ -110,17 +103,16 @@ export default function MemberView({ members, projects, onCreateMember, onUpdate
   );
 }
 
-function MemberModal({ member, projects, onSave, onClose }:
-  { member?: Member; projects: Project[];
-    onSave: (d: Partial<Member>) => void; onClose: () => void }) {
+function MemberModal({ member, onSave, onClose }:
+  { member?: Member; onSave: (d: Partial<Member>) => void; onClose: () => void }) {
   const [name,  setName]  = useState(member?.name ?? "");
   const [email, setEmail] = useState(member?.email ?? "");
   const [role,  setRole]  = useState<Member["role"]>(member?.role ?? "member");
-  const [color, setColor] = useState(member?.avatarColor ?? AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]);
+  const [avatarColor, setAvatarColor] = useState(member?.avatarColor ?? AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]);
 
   const handleSave = () => {
     if (!name.trim()) return;
-    onSave({ name: name.trim(), email: email.trim(), role, avatarColor: color, color });
+    onSave({ name: name.trim(), email: email.trim(), role, avatarColor });
   };
 
   return (
@@ -136,13 +128,13 @@ function MemberModal({ member, projects, onSave, onClose }:
         <div className="px-6 py-5 space-y-4">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-semibold text-lg shrink-0"
-              style={{ background: color }}>
+              style={{ background: avatarColor }}>
               {name ? initials(name) : "?"}
             </div>
             <div className="flex gap-1.5 flex-wrap">
               {AVATAR_COLORS.map(c => (
-                <button key={c} onClick={() => setColor(c)}
-                  className={`w-6 h-6 rounded-full transition-transform ${color === c ? "ring-2 ring-offset-1 scale-110" : "hover:scale-105"}`}
+                <button key={c} onClick={() => setAvatarColor(c)}
+                  className={`w-6 h-6 rounded-full transition-transform ${avatarColor === c ? "ring-2 ring-offset-1 scale-110" : "hover:scale-105"}`}
                   style={{ background: c }}/>
               ))}
             </div>
