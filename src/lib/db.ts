@@ -12,8 +12,7 @@ const toISO = (v: unknown): string => {
   return String(v);
 };
 
-// Projects
-export async function createProject(data: Omit<Project, "id" | "createdAt" | "updatedAt">) {
+export async function createProject(data: Omit<Project, "id"|"createdAt"|"updatedAt">) {
   const ref = await addDoc(collection(db, "projects"), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   return ref.id;
 }
@@ -27,8 +26,7 @@ export function subscribeProjects(cb: (projects: Project[]) => void) {
   });
 }
 
-// Tasks
-export async function createTask(data: Omit<Task, "id" | "createdAt" | "updatedAt">) {
+export async function createTask(data: Omit<Task, "id"|"createdAt"|"updatedAt">) {
   const ref = await addDoc(collection(db, "tasks"), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   return ref.id;
 }
@@ -48,30 +46,26 @@ export function subscribeTasksByProject(projectId: string, cb: (tasks: Task[]) =
   );
 }
 
-// Members
-export async function createMember(data: Omit<Member, "id" | "createdAt" | "updatedAt">) {
-  const ref = await addDoc(collection(db, "members"), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+export async function createMember(data: Omit<Member, "id"|"createdAt">) {
+  const ref = await addDoc(collection(db, "members"), { ...data, createdAt: serverTimestamp() });
   return ref.id;
 }
-export async function updateMember(id: string, data: Partial<Member>) {
-  await updateDoc(doc(db, "members", id), { ...data, updatedAt: serverTimestamp() });
-}
+export async function updateMember(id: string, data: Partial<Member>) { await updateDoc(doc(db, "members", id), data); }
 export async function deleteMember(id: string) { await deleteDoc(doc(db, "members", id)); }
 export function subscribeMembers(cb: (members: Member[]) => void) {
   return onSnapshot(query(collection(db, "members"), orderBy("name")), snap => {
-    cb(snap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: toISO(d.data().createdAt), updatedAt: toISO(d.data().updatedAt) } as Member)));
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: toISO(d.data().createdAt) } as Member)));
   });
 }
 
-// Comments
 export interface Comment {
   id: string;
   taskId: string;
-  authorId: string;
+  authorName: string;
   body: string;
   createdAt: string;
 }
-export async function createComment(data: Omit<Comment, "id" | "createdAt">) {
+export async function createComment(data: Omit<Comment, "id"|"createdAt">) {
   await addDoc(collection(db, "comments"), { ...data, createdAt: serverTimestamp() });
 }
 export async function deleteComment(id: string) { await deleteDoc(doc(db, "comments", id)); }
