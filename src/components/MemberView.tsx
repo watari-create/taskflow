@@ -21,7 +21,7 @@ const ROLE_COLOR: Record<Member["role"], string> = {
 };
 
 export default function MemberView({ members, projects, onCreateMember, onUpdateMember, onDeleteMember }: Props) {
-  const [showModal, setShowModal] = useState(false);
+  const [showModal,  setShowModal]  = useState(false);
   const [editTarget, setEditTarget] = useState<Member | null>(null);
 
   return (
@@ -105,9 +105,9 @@ export default function MemberView({ members, projects, onCreateMember, onUpdate
 
 function MemberModal({ member, onSave, onClose }:
   { member?: Member; onSave: (d: Partial<Member>) => void; onClose: () => void }) {
-  const [name,  setName]  = useState(member?.name ?? "");
-  const [email, setEmail] = useState(member?.email ?? "");
-  const [role,  setRole]  = useState<Member["role"]>(member?.role ?? "member");
+  const [name,       setName]       = useState(member?.name ?? "");
+  const [email,      setEmail]      = useState(member?.email ?? "");
+  const [role,       setRole]       = useState<Member["role"]>(member?.role ?? "member");
   const [avatarColor, setAvatarColor] = useState(member?.avatarColor ?? AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]);
 
   const handleSave = () => {
