@@ -7,7 +7,7 @@ import { initials, AVATAR_COLORS } from "@/lib/utils";
 interface Props {
   members: Member[];
   projects: Project[];
-  onCreateMember: (d: Omit<Member, "id"|"createdAt"|"updatedAt">) => void;
+  onCreateMember: (data: Omit<Member, "id"|"createdAt">) => void;
   onUpdateMember: (id: string, d: Partial<Member>) => void;
   onDeleteMember: (id: string) => void;
 }
