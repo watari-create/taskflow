@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Send, CheckCircle2, AlertTriangle, Calendar, Users, FolderKanban, TrendingUp, XCircle } from "lucide-react";
+import { Send, CheckCircle2, AlertTriangle, Calendar, Users, FolderKanban, TrendingUp, XCircle, FileText } from "lucide-react";
 import type { Project, Member, Task } from "@/types";
-import { subscribeTasksByProject } from "@/lib/db";
+import { subscribeTasksByProject, saveDailyMemo, subscribeDailyMemosByDate, type DailyMemo } from "@/lib/db";
 import { progressColor, initials, formatDate, daysUntil } from "@/lib/utils";
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
   currentMember: Member | null;
 }
 
-type Tab = "all" | "mine" | "unachieved";
+type Tab = "all" | "mine" | "unachieved" | "memo";
 
 export default function WeeklyReport({ projects, members, currentMember }: Props) {
   const [taskMap,  setTaskMap]  = useState<Record<string, Task[]>>({});
@@ -20,6 +20,12 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
   const [sentMine, setSentMine] = useState(false);
   const [error,    setError]    = useState("");
   const [tab,      setTab]      = useState<Tab>("all");
+  const [memos,    setMemos]    = useState<DailyMemo[]>([]);
+  const [myMemo,   setMyMemo]   = useState("");
+  const [saving,   setSaving]   = useState(false);
+  const [savedOk,  setSavedOk]  = useState(false);
+
+  const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     const unsubs: (() => void)[] = [];
@@ -32,6 +38,17 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
     return () => unsubs.forEach(u => u());
   }, [projects]);
 
+  useEffect(() => {
+    const unsub = subscribeDailyMemosByDate(today, memos => {
+      setMemos(memos);
+      if (currentMember) {
+        const mine = memos.find(m => m.memberId === currentMember.id);
+        if (mine) setMyMemo(mine.body);
+      }
+    });
+    return unsub;
+  }, [today, currentMember]);
+
   const allTasks = Object.values(taskMap).flat();
   const now = new Date();
   const monday = new Date(now);
@@ -43,9 +60,9 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
   const todayLabel = now.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
   const weekLabel  = `${monday.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}〜${sunday.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}`;
 
-  const doneTasks      = allTasks.filter(t => t.status === "done");
-  const overdueTasks   = allTasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== "done");
-  const soonTasks      = allTasks.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d >= 0 && d <= 3 && t.status !== "done"; });
+  const doneTasks       = allTasks.filter(t => t.status === "done");
+  const overdueTasks    = allTasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== "done");
+  const soonTasks       = allTasks.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d >= 0 && d <= 3 && t.status !== "done"; });
   const unachievedTasks = allTasks.filter(t => t.status !== "done" && ((t.dueDate && new Date(t.dueDate) < now) || (t.status === "todo" && t.progress === 0)));
 
   const myTasks      = currentMember ? allTasks.filter(t => t.assigneeIds.includes(currentMember.id)) : [];
@@ -66,13 +83,32 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
     unachieved: allTasks.filter(t => t.assigneeIds.includes(m.id) && t.status !== "done" && ((t.dueDate && new Date(t.dueDate) < now) || (t.status === "todo" && t.progress === 0))).length,
   }));
 
+  const handleSaveMemo = async () => {
+    if (!currentMember || !myMemo.trim()) return;
+    setSaving(true);
+    await saveDailyMemo({
+      memberId:    currentMember.id,
+      memberName:  currentMember.name,
+      avatarColor: currentMember.avatarColor,
+      body:        myMemo.trim(),
+      date:        today,
+    });
+    setSaving(false);
+    setSavedOk(true);
+    setTimeout(() => setSavedOk(false), 3000);
+  };
+
   const buildSlackText = (mode: "all" | "mine") => {
     const bar = (pct: number) => "▓".repeat(Math.round(pct / 10)) + "░".repeat(10 - Math.round(pct / 10));
+    const memoLines = memos.length > 0
+      ? "\n\n*📝 今日のメモ*\n" + memos.map(m => `${m.memberName}: ${m.body}`).join("\n")
+      : "";
     if (mode === "mine" && currentMember) {
       const taskLines = myTasks.slice(0, 8).map(t => {
         const status = t.status === "done" ? "✅" : t.status === "in_progress" ? "🔄" : "⬜";
         return `${status} ${t.title}（${t.progress}%）`;
       }).join("\n");
+      const myMemoLine = memos.find(m => m.memberId === currentMember.id);
       return [
         `📋 *${currentMember.name}の日次レポート｜${todayLabel}*`,
         "",
@@ -80,6 +116,7 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
         "",
         "*担当タスク一覧*",
         taskLines || "（担当タスクなし）",
+        myMemoLine ? `\n*📝 今日のメモ*\n${myMemoLine.body}` : "",
       ].join("\n");
     }
     const projLines = projects.map(p => `${bar(projectProgress(p.id))} ${p.name} ${projectProgress(p.id)}%`).join("\n");
@@ -96,10 +133,11 @@ export default function WeeklyReport({ projects, members, currentMember }: Props
       "```",
       overdueLines ? `\n*期限超過タスク*\n${overdueLines}` : "",
       soonLines    ? `\n*もうすぐ期限*\n${soonLines}`    : "",
+      memoLines,
     ].join("\n");
   };
 
-const handleSend = async (mode: "all" | "mine") => {
+  const handleSend = async (mode: "all" | "mine") => {
     setSending(true); setError("");
     try {
       const res = await fetch("/api/slack-report", {
@@ -142,17 +180,21 @@ const handleSend = async (mode: "all" | "mine") => {
         </div>
       </div>
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6 flex-wrap">
         {([
           { key: "all",        label: "全体サマリー" },
           { key: "mine",       label: currentMember ? `${currentMember.name}のタスク` : "自分のタスク" },
           { key: "unachieved", label: "未達成タスク" },
+          { key: "memo",       label: "📝 今日のメモ" },
         ] as { key: Tab; label: string }[]).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`text-xs px-4 py-2 rounded-lg transition-colors ${tab === t.key ? "bg-brand-600 text-white" : "bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}>
             {t.label}
             {t.key === "unachieved" && unachievedTasks.length > 0 && (
               <span className="ml-1.5 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{unachievedTasks.length}</span>
+            )}
+            {t.key === "memo" && memos.length > 0 && (
+              <span className="ml-1.5 bg-amber-400 text-white text-[10px] px-1.5 py-0.5 rounded-full">{memos.length}</span>
             )}
           </button>
         ))}
@@ -298,6 +340,69 @@ const handleSend = async (mode: "all" | "mine") => {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {tab === "memo" && (
+        <>
+          {currentMember ? (
+            <div className="bg-white rounded-2xl border border-zinc-200 p-5 mb-5">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-zinc-900 flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-semibold" style={{ background: currentMember.avatarColor }}>
+                    {initials(currentMember.name)}
+                  </div>
+                  {currentMember.name} の今日のメモ
+                </h2>
+                <span className="text-xs text-zinc-400">{todayLabel}</span>
+              </div>
+              <textarea
+                value={myMemo}
+                onChange={e => setMyMemo(e.target.value)}
+                placeholder={`今日やったこと、進捗、気になったことを書いてください...\n\n例）\n・〇〇プロジェクトのUI修正完了\n・△△の件、確認中\n・来週までに□□を仕上げる予定`}
+                rows={5}
+                className="w-full text-sm px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none text-zinc-800 placeholder-zinc-400"
+              />
+              <div className="flex items-center justify-between mt-3">
+                <span className="text-[10px] text-zinc-400">{myMemo.length} 文字</span>
+                <button onClick={handleSaveMemo} disabled={saving || !myMemo.trim()}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${savedOk ? "bg-green-500 text-white" : "bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-40"}`}>
+                  {savedOk ? <><CheckCircle2 size={13}/> 保存しました！</> : saving ? "保存中..." : "保存する"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-dashed border-zinc-200 flex flex-col items-center justify-center py-12 text-zinc-400 gap-2 mb-5">
+              <FileText size={28}/>
+              <p className="text-sm">メンバーとしてログインするとメモを書けます</p>
+            </div>
+          )}
+
+          <div className="bg-white rounded-2xl border border-zinc-200 p-5">
+            <h2 className="text-sm font-semibold text-zinc-900 mb-4 flex items-center gap-2">
+              <Users size={15} className="text-purple-500"/> チームの今日のメモ
+            </h2>
+            {memos.length === 0 ? (
+              <p className="text-xs text-zinc-400 py-6 text-center">まだ誰もメモを書いていません</p>
+            ) : (
+              <div className="space-y-4">
+                {memos.map(m => (
+                  <div key={m.id} className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0" style={{ background: m.avatarColor }}>
+                      {initials(m.memberName)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-zinc-800">{m.memberName}</span>
+                        <span className="text-[10px] text-zinc-400">{new Date(m.updatedAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                      <p className="text-xs text-zinc-600 bg-zinc-50 rounded-xl px-4 py-3 whitespace-pre-wrap leading-relaxed">{m.body}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
