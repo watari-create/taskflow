@@ -1,9 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Plus, FolderKanban, Users, TrendingUp, Clock } from "lucide-react";
-import type { Project, Member } from "@/types";
+import type { Project, Member, Task } from "@/types";
 import { subscribeTasksByProject } from "@/lib/db";
-import type { Task } from "@/types";
 import { PROJECT_COLORS, progressColor } from "@/lib/utils";
 
 interface Props {
@@ -27,9 +26,10 @@ export default function Dashboard({ projects, members, onSelectProject, onCreate
     return () => unsubs.forEach(u => u());
   }, [projects]);
 
-  const totalTasks   = Object.values(taskMap).flat().length;
-  const doneTasks    = Object.values(taskMap).flat().filter(t => t.status === "done").length;
-  const overdueTasks = Object.values(taskMap).flat().filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done").length;
+  const allTasks     = Object.values(taskMap).flat();
+  const totalTasks   = allTasks.length;
+  const doneTasks    = allTasks.filter(t => t.status === "done").length;
+  const overdueTasks = allTasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done").length;
 
   const projectProgress = (pid: string) => {
     const ts = taskMap[pid] ?? [];
@@ -61,9 +61,9 @@ export default function Dashboard({ projects, members, onSelectProject, onCreate
       ) : (
         <div className="grid grid-cols-3 gap-4">
           {projects.map(p => {
-            const ts   = taskMap[p.id] ?? [];
-            const prog = projectProgress(p.id);
-            const done = ts.filter(t => t.status === "done").length;
+            const ts     = taskMap[p.id] ?? [];
+            const prog   = projectProgress(p.id);
+            const done   = ts.filter(t => t.status === "done").length;
             const active = ts.filter(t => t.status === "in_progress").length;
             return (
               <button key={p.id} onClick={() => onSelectProject(p.id)}
@@ -111,9 +111,9 @@ function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; l
 }
 
 function NewProjectButton({ onCreateProject }: { onCreateProject: (d: Omit<Project,"id"|"createdAt"|"updatedAt">) => void }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [desc, setDesc] = useState("");
+  const [open,  setOpen]  = useState(false);
+  const [name,  setName]  = useState("");
+  const [desc,  setDesc]  = useState("");
   const [color, setColor] = useState(PROJECT_COLORS[0]);
 
   const handle = () => {
