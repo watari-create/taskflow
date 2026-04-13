@@ -8,6 +8,7 @@ import {
 } from "@/lib/db";
 import type { Project, Task, Member } from "@/types";
 import { initials } from "@/lib/utils";
+import { Menu, X } from "lucide-react";
 
 import Sidebar      from "./Sidebar";
 import Dashboard    from "./Dashboard";
@@ -25,6 +26,7 @@ export default function App() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [currentMember,     setCurrentMember]     = useState<Member | null>(null);
   const [memberSelected,    setMemberSelected]    = useState(false);
+  const [sidebarOpen,       setSidebarOpen]       = useState(false);
 
   useEffect(() => {
     const unsub1 = subscribeProjects(setProjects);
@@ -38,9 +40,11 @@ export default function App() {
     return unsub;
   }, [selectedProjectId]);
 
-  const handleSelectProject = useCallback((id: string) => { setSelectedProjectId(id); setView("project"); }, []);
+  const handleSelectProject = useCallback((id: string) => {
+    setSelectedProjectId(id); setView("project"); setSidebarOpen(false);
+  }, []);
   const handleCreateProject = useCallback(async (data: Omit<Project, "id"|"createdAt"|"updatedAt">) => {
-    const id = await createProject(data); setSelectedProjectId(id); setView("project");
+    const id = await createProject(data); setSelectedProjectId(id); setView("project"); setSidebarOpen(false);
   }, []);
   const handleUpdateProject = useCallback((id: string, data: Partial<Project>) => updateProject(id, data), []);
   const handleDeleteProject = useCallback(async (id: string) => {
@@ -54,6 +58,8 @@ export default function App() {
   const handleDeleteMember = useCallback((id: string) => deleteMember(id), []);
 
   const selectedProject = projects.find(p => p.id === selectedProjectId) ?? null;
+
+  const handleNav = (fn: () => void) => { fn(); setSidebarOpen(false); };
 
   if (!memberSelected) {
     return (
@@ -104,26 +110,55 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F4F4F5]">
-      <Sidebar
-        projects={projects} selectedProjectId={selectedProjectId} view={view}
-        currentMember={currentMember}
-        onSelectProject={handleSelectProject}
-        onSelectDashboard={() => setView("dashboard")}
-        onSelectMembers={() => setView("members")}
-        onSelectReport={() => setView("report")}
-        onCreateProject={handleCreateProject}
-        onSwitchMember={() => setMemberSelected(false)}
-      />
-      <main className="flex-1 overflow-y-auto">
-        {view === "dashboard" && <Dashboard projects={projects} members={members} onSelectProject={handleSelectProject} onCreateProject={handleCreateProject}/>}
-        {view === "project" && selectedProject && (
-          <ProjectView project={selectedProject} tasks={tasks} members={members}
-            onUpdateProject={handleUpdateProject} onDeleteProject={handleDeleteProject}
-            onCreateTask={handleCreateTask} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask}/>
-        )}
-        {view === "members" && <MemberView members={members} projects={projects} onCreateMember={handleCreateMember} onUpdateMember={handleUpdateMember} onDeleteMember={handleDeleteMember}/>}
-        {view === "report"  && <WeeklyReport projects={projects} members={members} currentMember={currentMember}/>}
-      </main>
+      {/* スマホ用オーバーレイ */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={() => setSidebarOpen(false)}/>
+      )}
+
+      {/* サイドバー — PCは常時表示、スマホはスライドイン */}
+      <div className={`fixed md:static inset-y-0 left-0 z-50 transition-transform duration-300 md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <Sidebar
+          projects={projects} selectedProjectId={selectedProjectId} view={view}
+          currentMember={currentMember}
+          onSelectProject={id => handleNav(() => handleSelectProject(id))}
+          onSelectDashboard={() => handleNav(() => setView("dashboard"))}
+          onSelectMembers={() => handleNav(() => setView("members"))}
+          onSelectReport={() => handleNav(() => setView("report"))}
+          onCreateProject={handleCreateProject}
+          onSwitchMember={() => { setMemberSelected(false); setSidebarOpen(false); }}
+        />
+      </div>
+
+      {/* メインコンテンツ */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* スマホ用トップバー */}
+        <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-zinc-200 shrink-0">
+          <button onClick={() => setSidebarOpen(true)}
+            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-zinc-100">
+            <Menu size={18} className="text-zinc-600"/>
+          </button>
+          <span className="font-semibold text-sm text-zinc-900">TaskFlow</span>
+          {currentMember && (
+            <div className="ml-auto flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-semibold"
+                style={{ background: currentMember.avatarColor }}>
+                {initials(currentMember.name)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <main className="flex-1 overflow-y-auto">
+          {view === "dashboard" && <Dashboard projects={projects} members={members} onSelectProject={handleSelectProject} onCreateProject={handleCreateProject}/>}
+          {view === "project" && selectedProject && (
+            <ProjectView project={selectedProject} tasks={tasks} members={members}
+              onUpdateProject={handleUpdateProject} onDeleteProject={handleDeleteProject}
+              onCreateTask={handleCreateTask} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask}/>
+          )}
+          {view === "members" && <MemberView members={members} projects={projects} onCreateMember={handleCreateMember} onUpdateMember={handleUpdateMember} onDeleteMember={handleDeleteMember}/>}
+          {view === "report"  && <WeeklyReport projects={projects} members={members} currentMember={currentMember}/>}
+        </main>
+      </div>
     </div>
   );
 }
