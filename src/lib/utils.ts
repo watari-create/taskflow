@@ -14,10 +14,10 @@ export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; b
   done:        { label: "完了",     color: "text-green-600",  bg: "bg-green-50" },
 };
 
-export const DEPARTMENTS: Department[] = ["宗徧流", "UCI", "山田家", "共通"];
+export const DEPARTMENTS: Department[] = ["宗偏流", "UCI", "山田家", "共通"];
 
 export const DEPARTMENT_CONFIG: Record<Department, { color: string; bg: string; border: string }> = {
-  "宗徧流": { color: "text-purple-700", bg: "bg-purple-50", border: "border-purple-200" },
+  "宗偏流": { color: "text-purple-700", bg: "bg-purple-50", border: "border-purple-200" },
   "UCI":    { color: "text-blue-700",   bg: "bg-blue-50",   border: "border-blue-200" },
   "山田家": { color: "text-amber-700",  bg: "bg-amber-50",  border: "border-amber-200" },
   "共通":   { color: "text-zinc-600",   bg: "bg-zinc-100",  border: "border-zinc-200" },
