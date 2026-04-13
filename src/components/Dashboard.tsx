@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, FolderKanban, Users, TrendingUp, Clock } from "lucide-react";
+import { Plus, FolderKanban, Users, TrendingUp, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import type { Project, Member, Task, Department } from "@/types";
 import { subscribeTasksByProject } from "@/lib/db";
 import { PROJECT_COLORS, progressColor, DEPARTMENTS, DEPARTMENT_CONFIG } from "@/lib/utils";
@@ -13,8 +13,8 @@ interface Props {
 }
 
 export default function Dashboard({ projects, members, onSelectProject, onCreateProject }: Props) {
-  const [taskMap,     setTaskMap]     = useState<Record<string, Task[]>>({});
-  const [filterDept,  setFilterDept]  = useState<Department | "all">("all");
+  const [taskMap,    setTaskMap]    = useState<Record<string, Task[]>>({});
+  const [collapsed,  setCollapsed]  = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const unsubs: (() => void)[] = [];
@@ -27,10 +27,6 @@ export default function Dashboard({ projects, members, onSelectProject, onCreate
     return () => unsubs.forEach(u => u());
   }, [projects]);
 
-  const filteredProjects = filterDept === "all"
-    ? projects
-    : projects.filter(p => p.department === filterDept);
-
   const allTasks     = Object.values(taskMap).flat();
   const totalTasks   = allTasks.length;
   const doneTasks    = allTasks.filter(t => t.status === "done").length;
@@ -42,85 +38,148 @@ export default function Dashboard({ projects, members, onSelectProject, onCreate
     return Math.round(ts.reduce((sum, t) => sum + t.progress, 0) / ts.length);
   };
 
+  const toggleCollapse = (dept: string) => {
+    setCollapsed(prev => ({ ...prev, [dept]: !prev[dept] }));
+  };
+
+  // 部門ごとにプロジェクトをグループ化
+  const grouped = DEPARTMENTS.map(dept => ({
+    dept,
+    projects: projects.filter(p => (p.department ?? "共通") === dept),
+  })).filter(g => g.projects.length > 0);
+
+  // 部門なし（未設定）のプロジェクト
+  const ungrouped = projects.filter(p => !p.department);
+
   return (
-    <div className="p-8 max-w-5xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-zinc-900">ダッシュボード</h1>
+    <div className="p-4 md:p-8 max-w-5xl mx-auto">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-xl md:text-2xl font-semibold text-zinc-900">ダッシュボード</h1>
         <p className="text-zinc-500 text-sm mt-1">全プロジェクトの進捗サマリー</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        <StatCard icon={<FolderKanban size={18} className="text-brand-500"/>} label="プロジェクト" value={projects.length} color="bg-brand-50"/>
-        <StatCard icon={<Users size={18} className="text-purple-500"/>} label="メンバー" value={members.length} color="bg-purple-50"/>
-        <StatCard icon={<TrendingUp size={18} className="text-green-500"/>} label="完了タスク" value={doneTasks} sub={`/ ${totalTasks}`} color="bg-green-50"/>
-        <StatCard icon={<Clock size={18} className="text-red-500"/>} label="期限超過" value={overdueTasks} color="bg-red-50"/>
+      {/* 統計カード — スマホ2列・PC4列 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+        <StatCard icon={<FolderKanban size={16} className="text-brand-500"/>} label="プロジェクト" value={projects.length} color="bg-brand-50"/>
+        <StatCard icon={<Users size={16} className="text-purple-500"/>} label="メンバー" value={members.length} color="bg-purple-50"/>
+        <StatCard icon={<TrendingUp size={16} className="text-green-500"/>} label="完了タスク" value={doneTasks} sub={`/ ${totalTasks}`} color="bg-green-50"/>
+        <StatCard icon={<Clock size={16} className="text-red-500"/>} label="期限超過" value={overdueTasks} color="bg-red-50"/>
       </div>
 
-      {/* 部門フィルター */}
-      <div className="flex items-center gap-2 mb-5 flex-wrap">
-        <span className="text-xs text-zinc-400 font-medium">部門:</span>
-        <button onClick={() => setFilterDept("all")}
-          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${filterDept === "all" ? "bg-zinc-800 text-white border-zinc-800" : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}>
-          すべて
-        </button>
-        {DEPARTMENTS.map(d => (
-          <button key={d} onClick={() => setFilterDept(d)}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${filterDept === d ? `${DEPARTMENT_CONFIG[d].bg} ${DEPARTMENT_CONFIG[d].color} ${DEPARTMENT_CONFIG[d].border}` : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}>
-            {d}
-          </button>
-        ))}
-      </div>
-
+      {/* 新規プロジェクトボタン */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-semibold text-zinc-900">
-          プロジェクト一覧
-          <span className="ml-2 text-sm font-normal text-zinc-400">{filteredProjects.length}件</span>
-        </h2>
+        <h2 className="text-base font-semibold text-zinc-900">プロジェクト一覧</h2>
         <NewProjectButton onCreateProject={onCreateProject}/>
       </div>
 
-      {filteredProjects.length === 0 ? (
+      {projects.length === 0 ? (
         <EmptyState onCreateProject={onCreateProject}/>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
-          {filteredProjects.map(p => {
-            const ts     = taskMap[p.id] ?? [];
-            const prog   = projectProgress(p.id);
-            const done   = ts.filter(t => t.status === "done").length;
-            const active = ts.filter(t => t.status === "in_progress").length;
-            return (
-              <button key={p.id} onClick={() => onSelectProject(p.id)}
-                className="card-lift text-left bg-white rounded-2xl border border-zinc-200 p-5 hover:border-zinc-300 transition-colors">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold text-sm" style={{ background: p.color }}>
-                    {p.name[0]}
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-xs text-zinc-400">{ts.length} タスク</span>
-                    {p.department && (
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${DEPARTMENT_CONFIG[p.department].bg} ${DEPARTMENT_CONFIG[p.department].color}`}>
-                        {p.department}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <h3 className="font-semibold text-zinc-900 text-sm mb-1 truncate">{p.name}</h3>
-                {p.description && <p className="text-xs text-zinc-400 mb-3 line-clamp-2">{p.description}</p>}
-                <div className="mt-3">
-                  <div className="flex justify-between text-xs text-zinc-400 mb-1.5">
-                    <span>進捗</span><span className="font-medium text-zinc-600">{prog}%</span>
-                  </div>
-                  <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full progress-fill ${progressColor(prog)}`} style={{ width: `${prog}%` }}/>
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-3 text-xs text-zinc-400">
-                  <span className="text-green-600">✓ {done} 完了</span>
-                  <span className="text-blue-500">● {active} 進行中</span>
-                </div>
+        <div className="space-y-6">
+          {grouped.map(({ dept, projects: deptProjects }) => (
+            <div key={dept}>
+              {/* 部門ヘッダー */}
+              <button onClick={() => toggleCollapse(dept)}
+                className="w-full flex items-center gap-3 mb-3 group">
+                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${DEPARTMENT_CONFIG[dept].bg} ${DEPARTMENT_CONFIG[dept].color} ${DEPARTMENT_CONFIG[dept].border} border`}>
+                  {dept}
+                </span>
+                <span className="text-xs text-zinc-400">{deptProjects.length}件</span>
+                <div className="flex-1 h-px bg-zinc-200"/>
+                {collapsed[dept]
+                  ? <ChevronDown size={14} className="text-zinc-400 shrink-0"/>
+                  : <ChevronUp size={14} className="text-zinc-400 shrink-0"/>
+                }
               </button>
-            );
-          })}
+
+              {/* プロジェクトカード — スマホ1列・PC3列 */}
+              {!collapsed[dept] && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                  {deptProjects.map(p => {
+                    const ts     = taskMap[p.id] ?? [];
+                    const prog   = projectProgress(p.id);
+                    const done   = ts.filter(t => t.status === "done").length;
+                    const active = ts.filter(t => t.status === "in_progress").length;
+                    return (
+                      <button key={p.id} onClick={() => onSelectProject(p.id)}
+                        className="card-lift text-left bg-white rounded-2xl border border-zinc-200 p-4 md:p-5 hover:border-zinc-300 transition-colors">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center text-white font-semibold text-sm shrink-0" style={{ background: p.color }}>
+                            {p.name[0]}
+                          </div>
+                          <span className="text-xs text-zinc-400">{ts.length} タスク</span>
+                        </div>
+                        <h3 className="font-semibold text-zinc-900 text-sm mb-1 truncate">{p.name}</h3>
+                        {p.description && <p className="text-xs text-zinc-400 mb-3 line-clamp-1">{p.description}</p>}
+                        <div className="mt-2">
+                          <div className="flex justify-between text-xs text-zinc-400 mb-1">
+                            <span>進捗</span><span className="font-medium text-zinc-600">{prog}%</span>
+                          </div>
+                          <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full progress-fill ${progressColor(prog)}`} style={{ width: `${prog}%` }}/>
+                          </div>
+                        </div>
+                        <div className="flex gap-3 mt-2 text-xs text-zinc-400">
+                          <span className="text-green-600">✓ {done}</span>
+                          <span className="text-blue-500">● {active}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* 部門未設定のプロジェクト */}
+          {ungrouped.length > 0 && (
+            <div>
+              <button onClick={() => toggleCollapse("未設定")}
+                className="w-full flex items-center gap-3 mb-3">
+                <span className="text-xs font-semibold px-3 py-1 rounded-full bg-zinc-100 text-zinc-500 border border-zinc-200">部門未設定</span>
+                <span className="text-xs text-zinc-400">{ungrouped.length}件</span>
+                <div className="flex-1 h-px bg-zinc-200"/>
+                {collapsed["未設定"]
+                  ? <ChevronDown size={14} className="text-zinc-400 shrink-0"/>
+                  : <ChevronUp size={14} className="text-zinc-400 shrink-0"/>
+                }
+              </button>
+              {!collapsed["未設定"] && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                  {ungrouped.map(p => {
+                    const ts   = taskMap[p.id] ?? [];
+                    const prog = projectProgress(p.id);
+                    const done   = ts.filter(t => t.status === "done").length;
+                    const active = ts.filter(t => t.status === "in_progress").length;
+                    return (
+                      <button key={p.id} onClick={() => onSelectProject(p.id)}
+                        className="card-lift text-left bg-white rounded-2xl border border-zinc-200 p-4 md:p-5 hover:border-zinc-300 transition-colors">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-semibold text-sm shrink-0" style={{ background: p.color }}>
+                            {p.name[0]}
+                          </div>
+                          <span className="text-xs text-zinc-400">{ts.length} タスク</span>
+                        </div>
+                        <h3 className="font-semibold text-zinc-900 text-sm mb-1 truncate">{p.name}</h3>
+                        <div className="mt-2">
+                          <div className="flex justify-between text-xs text-zinc-400 mb-1">
+                            <span>進捗</span><span className="font-medium text-zinc-600">{prog}%</span>
+                          </div>
+                          <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full progress-fill ${progressColor(prog)}`} style={{ width: `${prog}%` }}/>
+                          </div>
+                        </div>
+                        <div className="flex gap-3 mt-2 text-xs text-zinc-400">
+                          <span className="text-green-600">✓ {done}</span>
+                          <span className="text-blue-500">● {active}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -129,13 +188,13 @@ export default function Dashboard({ projects, members, onSelectProject, onCreate
 
 function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: number; sub?: string; color: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-zinc-200 p-4">
-      <div className={`w-9 h-9 rounded-xl ${color} flex items-center justify-center mb-3`}>{icon}</div>
+    <div className="bg-white rounded-2xl border border-zinc-200 p-3 md:p-4">
+      <div className={`w-8 h-8 md:w-9 md:h-9 rounded-xl ${color} flex items-center justify-center mb-2 md:mb-3`}>{icon}</div>
       <div className="flex items-baseline gap-1">
-        <span className="text-2xl font-semibold text-zinc-900">{value}</span>
-        {sub && <span className="text-sm text-zinc-400">{sub}</span>}
+        <span className="text-xl md:text-2xl font-semibold text-zinc-900">{value}</span>
+        {sub && <span className="text-xs md:text-sm text-zinc-400">{sub}</span>}
       </div>
-      <p className="text-xs text-zinc-500 mt-0.5">{label}</p>
+      <p className="text-[11px] md:text-xs text-zinc-500 mt-0.5">{label}</p>
     </div>
   );
 }
@@ -170,14 +229,14 @@ function NewProjectButton({ onCreateProject }: { onCreateProject: (d: Omit<Proje
     </div>
   ) : (
     <button onClick={()=>setOpen(true)} className="flex items-center gap-1.5 text-sm text-brand-600 font-medium hover:text-brand-700">
-      <Plus size={15}/> 新規プロジェクト
+      <Plus size={15}/> 新規
     </button>
   );
 }
 
 function EmptyState({ onCreateProject }: { onCreateProject: (d: Omit<Project,"id"|"createdAt"|"updatedAt">) => void }) {
   return (
-    <div className="bg-white rounded-2xl border border-dashed border-zinc-300 flex flex-col items-center justify-center py-20 gap-4">
+    <div className="bg-white rounded-2xl border border-dashed border-zinc-300 flex flex-col items-center justify-center py-16 gap-4">
       <div className="w-14 h-14 rounded-2xl bg-brand-50 flex items-center justify-center">
         <FolderKanban size={24} className="text-brand-400"/>
       </div>
